@@ -1,5 +1,7 @@
-//extern crate libc;
-//use libc::c_int;
+extern crate libc;
+use libc::c_int;
+
+use std::io::File;
 
 // When https://github.com/crabtw/rust-bindgen/issues/89 is fixed
 //#![feature(phase)]
@@ -10,29 +12,30 @@
 //    bindgen!("./mytcl.h", match="tcl.h", link="tclstub")
 //}
 
-#[repr(C)]
-struct Tcl_Interp {
-    result_dont_use: *mut u8,                // char *
-    free_proc_dont_use: extern fn (*mut u8), // char * -> void
-    error_line_dont_use: c_int,              // int
-}
+#[allow(dead_code, non_upper_case_globals, non_camel_case_types, non_snake_case, raw_pointer_deriving)]
+mod tcl;
 
-#[repr(C)]
-struct Tcl_Parse {
-    commentStart: *mut u8
-}
-
-#[link(name = "tclstub")]
-extern {
-    fn Tcl_CreateInterp() -> *mut Tcl_Interp;
-    fn Tcl_ParseCommand(interp: *mut Tcl_Interp,
-                        start: *const u8,
-                        numBytes: c_int,
-                        nested: c_int,
-                        parsePtr: *mut Tcl_Parse) -> u8;
-}
+static mut I: Option<*mut tcl::Tcl_Interp> = None;
 
 fn main() {
-    let x = unsafe { Tcl_CreateInterp() };
-    println!("max compressed length of a 100 byte buffer: {}", x);
+    unsafe { I = Some(tcl::Tcl_CreateInterp()); }
+    unsafe { println!("Tcl_Interp pointer: {}", I); }
+    scanfile("testfiles/test.tcl");
 }
+
+fn scanfile(path: &str) {
+    let mut file = File::open(&Path::new(path));
+    match file.read_to_string() {
+        Ok(v) => scancontents(v),
+        Err(e) => println!("WARN: Couldn't read {}: {}", path, e),
+    }
+}
+
+fn scancontents(contents: String) {
+    println!("{}", contents);
+}
+
+fn parsecommand () {}
+
+
+

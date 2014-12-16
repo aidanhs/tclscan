@@ -1,2 +1,2 @@
-#define USE_TCL_STUBS
-#include <tcl.h>
+//#define USE_TCL_STUBS
+#include "/usr/include/tcl/tcl.h"
