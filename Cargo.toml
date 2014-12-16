@@ -1,0 +1,13 @@
+[package]
+
+name = "tclscan"
+version = "0.0.1"
+authors = ["Aidan Hobson Sayers <aidanhs@cantab.net>"]
+
+[dependencies.rust-bindgen]
+git = "https://github.com/aidanhs/rust-bindgen.git"
+branch = "aphs-unsafety"
+
+[[bin]]
+
+name = "tclscan"
