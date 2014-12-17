@@ -35,7 +35,7 @@ fn scanfile(path: &str) {
 
 fn is_dangerous(token_str: &str) -> bool {
     assert!(token_str.len() > 0);
-    if token_str.chars().next().unwrap() == '{' {
+    if token_str.char_at(0) == '{' {
         return false;
     }
     if token_str.contains_char('$') {
