@@ -48,7 +48,10 @@ fn is_dangerous(token_str: &str) -> bool {
 }
 
 fn tcltrim(string: &str) -> &str {
-    assert!(string.starts_with("{") && string.ends_with("}"))
+    if !(string.starts_with("{") && string.ends_with("}")) {
+        println!("WARN: Not a block {}", string);
+        return "";
+    }
     return string[1..string.len()-1];
 }
 fn scancontents<'a>(contents: &'a str) {
@@ -75,7 +78,10 @@ fn scancontents<'a>(contents: &'a str) {
                     i += match token_strs[i] {
                         "elseif" => 3,
                         "else" => 2,
-                        _ => panic!("Badly formed conditional"),
+                        _ => {
+                            println!("WARN: Badly formed conditional {}", command);
+                            break;
+                        },
                     };
                     scancontents(tcltrim(token_strs[i-1]));
                 }
@@ -84,7 +90,7 @@ fn scancontents<'a>(contents: &'a str) {
             _ => false,
         };
         if dangerous {
-            println!("WARN: {}", command.trim_right_chars('\n'));
+            println!("DANGER: {}", command.trim_right_chars('\n'));
         }
     }
 }
@@ -100,7 +106,10 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a s
         let script_start = script_ptr as uint;
 
         // interp, start, numBytes, nested, parsePtr
-        assert!(tcl::Tcl_ParseCommand(I.unwrap(), script_ptr, -1, 0, parse_ptr) == 0);
+        if tcl::Tcl_ParseCommand(I.unwrap(), script_ptr, -1, 0, parse_ptr) != 0 {
+            println!("WARN: couldn't parse {}", script);
+            return ("", "", Vec::new(), "");
+        }
         let token_strs = gettokens(script, &parse, script_start);
 
         // commentStart seems to be undefined if commentSize == 0
