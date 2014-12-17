@@ -32,16 +32,35 @@ fn scanfile(path: &str) {
     }
 }
 
+fn is_dangerous(token_str: &str) -> bool {
+    assert!(token_str.len() > 0);
+    if token_str.chars().next().unwrap() == '{' {
+        return false;
+    }
+    for char in token_str.chars() {
+        if char == '$' || char == '[' {
+            return true;
+        }
+    }
+    return false;
+}
+
 fn scancontents<'a>(contents: &'a str) {
     let mut script: &'a str = contents;
     while script.len() > 0 {
-        let (comment, command, remaining) = parsecommand(script);
+        let (comment, command, token_strs, remaining) = parsecommand(script);
         script = remaining;
-        println!(">{}< >{}<", comment, command);
+        let dangerous = match token_strs[0] {
+            "eval" => is_dangerous(token_strs[1]),
+            _ => false,
+        };
+        if dangerous {
+            println!("WARN: {}", command);
+        }
     }
 }
 
-fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, &'a str) {
+fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
     unsafe {
         let mut parse: tcl::Tcl_Parse = uninitialized();
         let parse_ptr: *mut tcl::Tcl_Parse = &mut parse;
@@ -69,7 +88,7 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, &'a str) 
         let remaining = script[command_off+command_len..];
 
         tcl::Tcl_FreeParse(parse_ptr);
-        return (comment, command, remaining);
+        return (comment, command, token_strs, remaining);
     }
 }
 
