@@ -47,13 +47,40 @@ fn is_dangerous(token_str: &str) -> bool {
     return false;
 }
 
+fn tcltrim(string: &str) -> &str {
+    assert!(string.len() >=2)
+    return string[1..string.len()-1];
+}
 fn scancontents<'a>(contents: &'a str) {
     let mut script: &'a str = contents;
     while script.len() > 0 {
         let (comment, command, token_strs, remaining) = parsecommand(script);
         script = remaining;
+        if token_strs.len() == 0 {
+            continue;
+        }
         let dangerous = match token_strs[0] {
+            // eval script
             "eval" => is_dangerous(token_strs[1]),
+            // proc name args body
+            "proc" => {
+                scancontents(tcltrim(token_strs[3]));
+                false
+            },
+            // if X X [elseif X X]* [else X]
+            "if" => {
+                scancontents(tcltrim(token_strs[2]));
+                let mut i = 3;
+                while i < token_strs.len() {
+                    i += match token_strs[i] {
+                        "elseif" => 3,
+                        "else" => 2,
+                        _ => panic!("Badly formed conditional"),
+                    };
+                    scancontents(tcltrim(token_strs[i-1]));
+                }
+                false
+            },
             _ => false,
         };
         if dangerous {
