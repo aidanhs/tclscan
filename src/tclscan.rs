@@ -98,6 +98,10 @@ fn scan_contents<'a>(contents: &'a str) {
             _ => Vec::from_elem(token_strs.len()-1, Code::Normal),
         };
         let mut dangerous = false;
+        if param_types.len() != token_strs.len() - 1 {
+            println!("WARN: Badly formed command {}", command.trim_right_chars('\n'));
+            continue
+        }
         for (param_type, param) in param_types.iter().zip(token_strs[1..].iter()) {
             dangerous = dangerous || match *param_type {
                 Code::Block => { scan_contents(tcltrim(*param)); !is_literal(*param) },
