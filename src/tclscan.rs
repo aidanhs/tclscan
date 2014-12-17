@@ -22,13 +22,13 @@ static mut I: Option<*mut tcl::Tcl_Interp> = None;
 fn main() {
     unsafe { I = Some(tcl::Tcl_CreateInterp()); }
     let args = os::args();
-    scanfile(args[1].as_slice());
+    scan_file(args[1].as_slice());
 }
 
-fn scanfile(path: &str) {
+fn scan_file(path: &str) {
     let mut file = File::open(&Path::new(path));
     match file.read_to_string() {
-        Ok(v) => scancontents(v.as_slice()),
+        Ok(v) => scan_contents(v.as_slice()),
         Err(e) => println!("WARN: Couldn't read {}: {}", path, e),
     }
 }
@@ -54,10 +54,10 @@ fn tcltrim(string: &str) -> &str {
     }
     return string[1..string.len()-1];
 }
-fn scancontents<'a>(contents: &'a str) {
+fn scan_contents<'a>(contents: &'a str) {
     let mut script: &'a str = contents;
     while script.len() > 0 {
-        let (comment, command, token_strs, remaining) = parsecommand(script);
+        let (_, command, token_strs, remaining) = parse_command(script);
         script = remaining;
         if token_strs.len() == 0 {
             continue;
@@ -78,22 +78,22 @@ fn scancontents<'a>(contents: &'a str) {
             },
             // proc name args body
             "proc" => {
-                scancontents(tcltrim(token_strs[3]));
+                scan_contents(tcltrim(token_strs[3]));
                 false
             },
             // for iter body
             "for" => {
-                scancontents(tcltrim(token_strs[2]));
+                scan_contents(tcltrim(token_strs[2]));
                 false
             },
             // foreach [varname list]+ body
             "foreach" => {
-                scancontents(tcltrim(token_strs[token_strs.len()-1]));
+                scan_contents(tcltrim(token_strs[token_strs.len()-1]));
                 false
             },
             // if X X [elseif X X]* [else X]?
             "if" => {
-                scancontents(tcltrim(token_strs[2]));
+                scan_contents(tcltrim(token_strs[2]));
                 let mut i = 3;
                 while i < token_strs.len() {
                     i += match token_strs[i] {
@@ -104,7 +104,7 @@ fn scancontents<'a>(contents: &'a str) {
                             break;
                         },
                     };
-                    scancontents(tcltrim(token_strs[i-1]));
+                    scan_contents(tcltrim(token_strs[i-1]));
                 }
                 false
             },
@@ -116,7 +116,7 @@ fn scancontents<'a>(contents: &'a str) {
     }
 }
 
-fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
+fn parse_command<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
     unsafe {
         let mut parse: tcl::Tcl_Parse = uninitialized();
         let parse_ptr: *mut tcl::Tcl_Parse = &mut parse;
@@ -131,7 +131,7 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a s
             println!("WARN: couldn't parse {}", script);
             return ("", "", Vec::new(), "");
         }
-        let token_strs = gettokens(script, &parse, script_start);
+        let token_strs = get_tokens(script, &parse, script_start);
 
         // commentStart seems to be undefined if commentSize == 0
         let comment = match parse.commentSize.to_uint().unwrap() {
@@ -151,7 +151,7 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a s
     }
 }
 
-unsafe fn gettokens<'a>(script: &'a str, parse: &tcl::Tcl_Parse, script_start: uint) -> Vec<&'a str> {
+unsafe fn get_tokens<'a>(script: &'a str, parse: &tcl::Tcl_Parse, script_start: uint) -> Vec<&'a str> {
     let num = parse.numTokens as int;
     let token_ptr = parse.tokenPtr;
     let mut token_strs = Vec::new();
