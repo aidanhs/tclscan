@@ -65,12 +65,33 @@ fn scancontents<'a>(contents: &'a str) {
         let dangerous = match token_strs[0] {
             // eval script
             "eval" => is_dangerous(token_strs[1]),
+            // expr [arg]+
+            "expr" => {
+                let mut danger = false;
+                for token_str in token_strs[1..].iter() {
+                    danger = is_dangerous(*token_str);
+                    if danger {
+                        break;
+                    }
+                }
+                danger
+            },
             // proc name args body
             "proc" => {
                 scancontents(tcltrim(token_strs[3]));
                 false
             },
-            // if X X [elseif X X]* [else X]
+            // for iter body
+            "for" => {
+                scancontents(tcltrim(token_strs[2]));
+                false
+            },
+            // foreach [varname list]+ body
+            "foreach" => {
+                scancontents(tcltrim(token_strs[token_strs.len()-1]));
+                false
+            },
+            // if X X [elseif X X]* [else X]?
             "if" => {
                 scancontents(tcltrim(token_strs[2]));
                 let mut i = 3;
