@@ -49,11 +49,12 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, &'a str) 
         // https://github.com/rust-lang/rust/issues/16035
         let script_cstr = script.to_c_str();
         let script_ptr = script_cstr.as_ptr();
+        let script_start = script_ptr as uint;
 
         // interp, start, numBytes, nested, parsePtr
         assert!(tcl::Tcl_ParseCommand(I.unwrap(), script_ptr, -1, 0, parse_ptr) == 0);
+        let token_strs = gettokens(script, &parse, script_start);
 
-        let script_start = script_ptr as uint;
         // commentStart seems to be undefined if commentSize == 0
         let comment = match parse.commentSize.to_uint().unwrap() {
             0 => "",
@@ -72,5 +73,19 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, &'a str) 
     }
 }
 
-
-
+unsafe fn gettokens<'a>(script: &'a str, parse: &tcl::Tcl_Parse, script_start: uint) -> Vec<&'a str> {
+    let num = parse.numTokens as int;
+    let token_ptr = parse.tokenPtr;
+    let mut token_strs = Vec::new();
+    let mut i = 0;
+    while i < num {
+        let token = *token_ptr.offset(i);
+        let offset = token.start as uint - script_start;
+        let size = token.size.to_uint().unwrap();
+        let token_str = script[offset..offset+size];
+        token_strs.push(token_str);
+        i += token.numComponents as int;
+        i += 1;
+    }
+    return token_strs;
+}
