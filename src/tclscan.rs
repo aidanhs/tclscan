@@ -84,7 +84,7 @@ fn scancontents<'a>(contents: &'a str) {
             _ => false,
         };
         if dangerous {
-            println!("WARN: {}", command);
+            println!("WARN: {}", command.trim_right_chars('\n'));
         }
     }
 }
