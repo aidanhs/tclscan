@@ -39,16 +39,17 @@ fn is_dangerous(token_str: &str) -> bool {
     if token_str.chars().next().unwrap() == '{' {
         return false;
     }
-    for char in token_str.chars() {
-        if char == '$' || char == '[' {
-            return true;
-        }
+    if token_str.contains_char('$') {
+        return true
+    }
+    if token_str.contains_char('[') {
+        return true
     }
     return false;
 }
 
 fn tcltrim(string: &str) -> &str {
-    assert!(string.len() >=2)
+    assert!(string.starts_with("{") && string.ends_with("}"))
     return string[1..string.len()-1];
 }
 fn scancontents<'a>(contents: &'a str) {
