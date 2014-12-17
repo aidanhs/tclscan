@@ -51,7 +51,7 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, &'a str) 
         let script_ptr = script_cstr.as_ptr();
 
         // interp, start, numBytes, nested, parsePtr
-        tcl::Tcl_ParseCommand(I.unwrap(), script_ptr, -1, 0, parse_ptr);
+        assert!(tcl::Tcl_ParseCommand(I.unwrap(), script_ptr, -1, 0, parse_ptr) == 0);
 
         let script_start = script_ptr as uint;
         // commentStart seems to be undefined if commentSize == 0
@@ -66,6 +66,8 @@ fn parsecommand<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, &'a str) 
         let command_off = parse.commandStart as uint - script_start;
         let command = script[command_off..command_off+command_len];
         let remaining = script[command_off+command_len..];
+
+        tcl::Tcl_FreeParse(parse_ptr);
         return (comment, command, remaining);
     }
 }
