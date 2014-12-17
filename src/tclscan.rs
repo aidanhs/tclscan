@@ -21,7 +21,6 @@ static mut I: Option<*mut tcl::Tcl_Interp> = None;
 
 fn main() {
     unsafe { I = Some(tcl::Tcl_CreateInterp()); }
-    unsafe { println!("Tcl_Interp pointer: {}", I); }
     let args = os::args();
     scanfile(args[1].as_slice());
 }
