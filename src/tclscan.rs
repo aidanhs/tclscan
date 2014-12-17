@@ -33,18 +33,26 @@ fn scan_file(path: &str) {
     }
 }
 
-fn is_dangerous(token_str: &str) -> bool {
+fn is_literal(token_str: &str) -> bool {
     assert!(token_str.len() > 0);
     if token_str.char_at(0) == '{' {
-        return false;
+        return true;
     }
     if token_str.contains_char('$') {
-        return true
+        return false;
     }
     if token_str.contains_char('[') {
-        return true
+        return false;
     }
-    return false;
+    return true;
+}
+
+#[deriving(Clone)]
+enum Code {
+    Block,
+    Expr,
+    Literal,
+    Normal,
 }
 
 fn tcltrim(string: &str) -> &str {
@@ -62,54 +70,42 @@ fn scan_contents<'a>(contents: &'a str) {
         if token_strs.len() == 0 {
             continue;
         }
-        let dangerous = match token_strs[0] {
+        let param_types = match token_strs[0] {
             // eval script
-            "eval" => is_dangerous(token_strs[1]),
+            "eval" => vec![Code::Block],
             // expr [arg]+
-            "expr" => {
-                let mut danger = false;
-                for token_str in token_strs[1..].iter() {
-                    danger = is_dangerous(*token_str);
-                    if danger {
-                        break;
-                    }
-                }
-                danger
-            },
+            "expr" => token_strs[1..].iter().map(|_| Code::Expr).collect(),
             // proc name args body
-            "proc" => {
-                scan_contents(tcltrim(token_strs[3]));
-                false
-            },
+            "proc" => vec![Code::Literal, Code::Literal, Code::Block],
             // for iter body
-            "for" => {
-                scan_contents(tcltrim(token_strs[2]));
-                false
-            },
+            "for" => vec![Code::Literal, Code::Block],
             // foreach [varname list]+ body
-            "foreach" => {
-                scan_contents(tcltrim(token_strs[token_strs.len()-1]));
-                false
-            },
-            // if X X [elseif X X]* [else X]?
+            "foreach" => vec![Code::Literal, Code::Normal, Code::Block],
+            // if cond body [elseif cond body]* [else body]?
             "if" => {
-                scan_contents(tcltrim(token_strs[2]));
+                let mut param_types = vec![Code::Expr, Code::Block];
                 let mut i = 3;
                 while i < token_strs.len() {
-                    i += match token_strs[i] {
-                        "elseif" => 3,
-                        "else" => 2,
-                        _ => {
-                            println!("WARN: Badly formed conditional {}", command);
-                            break;
-                        },
-                    };
-                    scan_contents(tcltrim(token_strs[i-1]));
+                    param_types.push_all(match token_strs[i] {
+                        "elseif" => vec![Code::Literal, Code::Expr, Code::Block],
+                        "else" => vec![Code::Literal, Code::Block],
+                        _ => { break; },
+                    }.as_slice());
+                    i = param_types.len();
                 }
-                false
+                param_types
             },
-            _ => false,
+            _ => Vec::from_elem(token_strs.len()-1, Code::Normal),
         };
+        let mut dangerous = false;
+        for (param_type, param) in param_types.iter().zip(token_strs[1..].iter()) {
+            dangerous = dangerous || match *param_type {
+                Code::Block => { scan_contents(tcltrim(*param)); !is_literal(*param) },
+                Code::Expr => !is_literal(*param),
+                Code::Literal => !is_literal(*param),
+                Code::Normal => false,
+            }
+        }
         if dangerous {
             println!("DANGER: {}", command.trim_right_chars('\n'));
         }
