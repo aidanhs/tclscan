@@ -5,6 +5,9 @@ use std::os;
 use std::io::File;
 use std::mem::uninitialized;
 
+// http://www.tcl.tk/doc/howto/stubs.html
+// Ideally would use stubs but they seem to not work
+
 // When https://github.com/crabtw/rust-bindgen/issues/89 is fixed
 //#![feature(phase)]
 //#[phase(plugin)] extern crate bindgen;
