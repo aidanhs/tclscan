@@ -62,7 +62,7 @@ fn tcltrim(string: &str) -> &str {
     }
     return string[1..string.len()-1];
 }
-fn check_command(command: &str, token_strs: Vec<&str>) -> bool {
+fn is_command_insecure(token_strs: Vec<&str>) -> Result<bool, &str> {
     let param_types = match token_strs[0] {
         // eval script
         "eval" => vec![Code::Block],
@@ -90,20 +90,19 @@ fn check_command(command: &str, token_strs: Vec<&str>) -> bool {
         },
         _ => Vec::from_elem(token_strs.len()-1, Code::Normal),
     };
-    let mut dangerous = false;
     if param_types.len() != token_strs.len() - 1 {
-        println!("WARN: Badly formed command {}", command.trim_right_chars('\n'));
-        return false;
+        return Err("badly formed command");
     }
+    let mut insecure = false;
     for (param_type, param) in param_types.iter().zip(token_strs[1..].iter()) {
-        dangerous = dangerous || match *param_type {
+        insecure = insecure || match *param_type {
             Code::Block => { scan_contents(tcltrim(*param)); !is_literal(*param) },
             Code::Expr => !is_literal(*param),
             Code::Literal => !is_literal(*param),
             Code::Normal => false,
         }
     }
-    return dangerous;
+    return Ok(insecure);
 }
 
 fn scan_contents<'a>(contents: &'a str) {
@@ -114,8 +113,10 @@ fn scan_contents<'a>(contents: &'a str) {
         if token_strs.len() == 0 {
             continue;
         }
-        if check_command(command, token_strs) {
-            println!("DANGER: {}", command.trim_right_chars('\n'));
+        match is_command_insecure(token_strs) {
+            Ok(true) => println!("DANGER: {}", command.trim_right_chars('\n')),
+            Ok(false) => (),
+            Err(e) => println!("WARN: {}", e),
         }
     }
 }
