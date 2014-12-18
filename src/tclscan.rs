@@ -65,7 +65,15 @@ fn tcltrim(string: &str) -> &str {
 fn is_command_insecure(token_strs: Vec<&str>) -> Result<bool, &str> {
     let param_types = match token_strs[0] {
         // eval script
-        "eval" => vec![Code::Block],
+        "eval" => Vec::from_elem(token_strs.len()-1, Code::Block),
+        // catch script [result]? [options]?
+        "catch" => {
+            let mut param_types = vec![Code::Block];
+            if token_strs.len() == 3 || token_strs.len() == 4 {
+                param_types.push_all(Vec::from_elem(token_strs.len()-2, Code::Literal).as_slice());
+            }
+            param_types
+        }
         // expr [arg]+
         "expr" => token_strs[1..].iter().map(|_| Code::Expr).collect(),
         // proc name args body
