@@ -62,6 +62,50 @@ fn tcltrim(string: &str) -> &str {
     }
     return string[1..string.len()-1];
 }
+fn check_command(command: &str, token_strs: Vec<&str>) -> bool {
+    let param_types = match token_strs[0] {
+        // eval script
+        "eval" => vec![Code::Block],
+        // expr [arg]+
+        "expr" => token_strs[1..].iter().map(|_| Code::Expr).collect(),
+        // proc name args body
+        "proc" => vec![Code::Literal, Code::Literal, Code::Block],
+        // for init cond iter body
+        "for" => vec![Code::Block, Code::Expr, Code::Block, Code::Block],
+        // foreach [varname list]+ body
+        "foreach" => vec![Code::Literal, Code::Normal, Code::Block],
+        // if cond body [elseif cond body]* [else body]?
+        "if" => {
+            let mut param_types = vec![Code::Expr, Code::Block];
+            let mut i = 3;
+            while i < token_strs.len() {
+                param_types.push_all(match token_strs[i] {
+                    "elseif" => vec![Code::Literal, Code::Expr, Code::Block],
+                    "else" => vec![Code::Literal, Code::Block],
+                    _ => { break; },
+                }.as_slice());
+                i = param_types.len() + 1;
+            }
+            param_types
+        },
+        _ => Vec::from_elem(token_strs.len()-1, Code::Normal),
+    };
+    let mut dangerous = false;
+    if param_types.len() != token_strs.len() - 1 {
+        println!("WARN: Badly formed command {}", command.trim_right_chars('\n'));
+        return false;
+    }
+    for (param_type, param) in param_types.iter().zip(token_strs[1..].iter()) {
+        dangerous = dangerous || match *param_type {
+            Code::Block => { scan_contents(tcltrim(*param)); !is_literal(*param) },
+            Code::Expr => !is_literal(*param),
+            Code::Literal => !is_literal(*param),
+            Code::Normal => false,
+        }
+    }
+    return dangerous;
+}
+
 fn scan_contents<'a>(contents: &'a str) {
     let mut script: &'a str = contents;
     while script.len() > 0 {
@@ -70,47 +114,7 @@ fn scan_contents<'a>(contents: &'a str) {
         if token_strs.len() == 0 {
             continue;
         }
-        let param_types = match token_strs[0] {
-            // eval script
-            "eval" => vec![Code::Block],
-            // expr [arg]+
-            "expr" => token_strs[1..].iter().map(|_| Code::Expr).collect(),
-            // proc name args body
-            "proc" => vec![Code::Literal, Code::Literal, Code::Block],
-            // for init cond iter body
-            "for" => vec![Code::Block, Code::Expr, Code::Block, Code::Block],
-            // foreach [varname list]+ body
-            "foreach" => vec![Code::Literal, Code::Normal, Code::Block],
-            // if cond body [elseif cond body]* [else body]?
-            "if" => {
-                let mut param_types = vec![Code::Expr, Code::Block];
-                let mut i = 3;
-                while i < token_strs.len() {
-                    param_types.push_all(match token_strs[i] {
-                        "elseif" => vec![Code::Literal, Code::Expr, Code::Block],
-                        "else" => vec![Code::Literal, Code::Block],
-                        _ => { break; },
-                    }.as_slice());
-                    i = param_types.len() + 1;
-                }
-                param_types
-            },
-            _ => Vec::from_elem(token_strs.len()-1, Code::Normal),
-        };
-        let mut dangerous = false;
-        if param_types.len() != token_strs.len() - 1 {
-            println!("WARN: Badly formed command {}", command.trim_right_chars('\n'));
-            continue
-        }
-        for (param_type, param) in param_types.iter().zip(token_strs[1..].iter()) {
-            dangerous = dangerous || match *param_type {
-                Code::Block => { scan_contents(tcltrim(*param)); !is_literal(*param) },
-                Code::Expr => !is_literal(*param),
-                Code::Literal => !is_literal(*param),
-                Code::Normal => false,
-            }
-        }
-        if dangerous {
+        if check_command(command, token_strs) {
             println!("DANGER: {}", command.trim_right_chars('\n'));
         }
     }
