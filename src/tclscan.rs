@@ -77,8 +77,8 @@ fn scan_contents<'a>(contents: &'a str) {
             "expr" => token_strs[1..].iter().map(|_| Code::Expr).collect(),
             // proc name args body
             "proc" => vec![Code::Literal, Code::Literal, Code::Block],
-            // for iter body
-            "for" => vec![Code::Literal, Code::Block],
+            // for init cond iter body
+            "for" => vec![Code::Block, Code::Expr, Code::Block, Code::Block],
             // foreach [varname list]+ body
             "foreach" => vec![Code::Literal, Code::Normal, Code::Block],
             // if cond body [elseif cond body]* [else body]?
@@ -91,7 +91,7 @@ fn scan_contents<'a>(contents: &'a str) {
                         "else" => vec![Code::Literal, Code::Block],
                         _ => { break; },
                     }.as_slice());
-                    i = param_types.len();
+                    i = param_types.len() + 1;
                 }
                 param_types
             },
