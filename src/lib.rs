@@ -130,7 +130,7 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
     return I.unwrap();
 }
 
-fn parse_command<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
+fn parse_command<'a>(script: &'a str) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
     unsafe {
         let mut parse: tcl::Tcl_Parse = uninitialized();
         let parse_ptr: *mut tcl::Tcl_Parse = &mut parse;
