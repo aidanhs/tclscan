@@ -1,7 +1,5 @@
 #![feature(slicing_syntax)]
 extern crate libc;
-
-use std::os;
 use std::io::File;
 use std::mem::uninitialized;
 
@@ -22,13 +20,8 @@ mod tcl;
 
 static mut I: Option<*mut tcl::Tcl_Interp> = None;
 
-fn main() {
+pub fn scan_file(path: &str) {
     unsafe { I = Some(tcl::Tcl_CreateInterp()); }
-    let args = os::args();
-    scan_file(args[1].as_slice());
-}
-
-fn scan_file(path: &str) {
     let mut file = File::open(&Path::new(path));
     match file.read_to_string() {
         Ok(v) => scan_contents(v.as_slice()),
