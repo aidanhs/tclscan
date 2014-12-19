@@ -21,7 +21,7 @@ mod tcl;
 pub fn scan_file(path: &str) {
     let mut file = File::open(&Path::new(path));
     match file.read_to_string() {
-        Ok(v) => scan_contents(v.as_slice()),
+        Ok(v) => scan_string(v.as_slice()),
         Err(e) => println!("WARN: Couldn't read {}: {}", path, e),
     }
 }
@@ -97,7 +97,7 @@ fn is_command_insecure(token_strs: Vec<&str>) -> Result<bool, &str> {
     let mut insecure = false;
     for (param_type, param) in param_types.iter().zip(token_strs[1..].iter()) {
         insecure = insecure || match *param_type {
-            Code::Block => { scan_contents(tcltrim(*param)); !is_literal(*param) },
+            Code::Block => { scan_string(tcltrim(*param)); !is_literal(*param) },
             Code::Expr => !is_literal(*param),
             Code::Literal => !is_literal(*param),
             Code::Normal => false,
@@ -106,8 +106,8 @@ fn is_command_insecure(token_strs: Vec<&str>) -> Result<bool, &str> {
     return Ok(insecure);
 }
 
-fn scan_contents<'a>(contents: &'a str) {
-    let mut script: &'a str = contents;
+fn scan_string<'a>(string: &'a str) {
+    let mut script: &'a str = string;
     while script.len() > 0 {
         let (_, command, token_strs, remaining) = parse_command(script);
         script = remaining;
