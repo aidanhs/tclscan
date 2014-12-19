@@ -4,7 +4,7 @@ extern crate libc;
 
 use std::io::File;
 
-mod rstcl;
+pub mod rstcl;
 #[allow(dead_code, non_upper_case_globals, non_camel_case_types, non_snake_case, raw_pointer_deriving)]
 mod tcl;
 

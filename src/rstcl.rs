@@ -9,6 +9,20 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
     return I.unwrap();
 }
 
+/// Takes: a script
+/// Returns:
+/// - the comment prefixing the first command
+/// - the first command
+/// - the top level string tokens of the first command
+/// - and the remaining script.
+///
+/// ```
+/// use tclscan::rstcl::parse_command;
+/// assert!(parse_command("a b $c [d]") == ("", "a b $c [d]", vec!["a", "b", "$c", "[d]"], ""))
+/// assert!(parse_command(" a\n") == ("", "a\n", vec!["a"], ""))
+/// assert!(parse_command("a; b") == ("", "a;", vec!["a"], " b"))
+/// assert!(parse_command("#comment\n\n\na\n") == ("#comment\n", "a\n", vec!["a"], ""))
+/// ```
 pub fn parse_command<'a>(script: &'a str) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
     unsafe {
         let mut parse: tcl::Tcl_Parse = uninitialized();
