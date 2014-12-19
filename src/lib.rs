@@ -18,10 +18,7 @@ use std::mem::uninitialized;
 #[allow(dead_code, non_upper_case_globals, non_camel_case_types, non_snake_case, raw_pointer_deriving)]
 mod tcl;
 
-static mut I: Option<*mut tcl::Tcl_Interp> = None;
-
 pub fn scan_file(path: &str) {
-    unsafe { I = Some(tcl::Tcl_CreateInterp()); }
     let mut file = File::open(&Path::new(path));
     match file.read_to_string() {
         Ok(v) => scan_contents(v.as_slice()),
@@ -125,6 +122,14 @@ fn scan_contents<'a>(contents: &'a str) {
     }
 }
 
+static mut I: Option<*mut tcl::Tcl_Interp> = None;
+unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
+    if I.is_none() {
+        I = Some(tcl::Tcl_CreateInterp());
+    }
+    return I.unwrap();
+}
+
 fn parse_command<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
     unsafe {
         let mut parse: tcl::Tcl_Parse = uninitialized();
@@ -136,7 +141,7 @@ fn parse_command<'a>(script: &'a str/*, nested*/) -> (&'a str, &'a str, Vec<&'a 
         let script_start = script_ptr as uint;
 
         // interp, start, numBytes, nested, parsePtr
-        if tcl::Tcl_ParseCommand(I.unwrap(), script_ptr, -1, 0, parse_ptr) != 0 {
+        if tcl::Tcl_ParseCommand(tcl_interp(), script_ptr, -1, 0, parse_ptr) != 0 {
             println!("WARN: couldn't parse {}", script);
             return ("", "", Vec::new(), "");
         }
