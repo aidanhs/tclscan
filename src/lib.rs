@@ -29,7 +29,8 @@ pub fn scan_file(path: &str) {
     }
 }
 
-fn is_literal(token_str: &str) -> bool {
+fn is_literal(token: &rstcl::TclToken) -> bool {
+    let token_str = token.val;
     assert!(token_str.len() > 0);
     if token_str.char_at(0) == '{' {
         return true;
@@ -59,20 +60,19 @@ fn tcltrim(string: &str) -> &str {
     return string[1..string.len()-1];
 }
 fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
-    let token_strs: Vec<&str> = tokens.iter().map(|e| e.val).collect();
-    let param_types = match token_strs[0] {
+    let param_types = match tokens[0].val {
         // eval script
-        "eval" => Vec::from_elem(token_strs.len()-1, Code::Block),
+        "eval" => Vec::from_elem(tokens.len()-1, Code::Block),
         // catch script [result]? [options]?
         "catch" => {
             let mut param_types = vec![Code::Block];
-            if token_strs.len() == 3 || token_strs.len() == 4 {
-                param_types.push_all(Vec::from_elem(token_strs.len()-2, Code::Literal).as_slice());
+            if tokens.len() == 3 || tokens.len() == 4 {
+                param_types.push_all(Vec::from_elem(tokens.len()-2, Code::Literal).as_slice());
             }
             param_types
         }
         // expr [arg]+
-        "expr" => token_strs[1..].iter().map(|_| Code::Expr).collect(),
+        "expr" => tokens[1..].iter().map(|_| Code::Expr).collect(),
         // proc name args body
         "proc" => vec![Code::Literal, Code::Literal, Code::Block],
         // for init cond iter body
@@ -83,8 +83,8 @@ fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
         "if" => {
             let mut param_types = vec![Code::Expr, Code::Block];
             let mut i = 3;
-            while i < token_strs.len() {
-                param_types.push_all(match token_strs[i] {
+            while i < tokens.len() {
+                param_types.push_all(match tokens[i].val {
                     "elseif" => vec![Code::Literal, Code::Expr, Code::Block],
                     "else" => vec![Code::Literal, Code::Block],
                     _ => { break; },
@@ -93,17 +93,17 @@ fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
             }
             param_types
         },
-        _ => Vec::from_elem(token_strs.len()-1, Code::Normal),
+        _ => Vec::from_elem(tokens.len()-1, Code::Normal),
     };
-    if param_types.len() != token_strs.len() - 1 {
+    if param_types.len() != tokens.len() - 1 {
         return Err("badly formed command");
     }
     let mut insecure = false;
-    for (param_type, param) in param_types.iter().zip(token_strs[1..].iter()) {
+    for (param_type, param) in param_types.iter().zip(tokens[1..].iter()) {
         insecure = insecure || match *param_type {
-            Code::Block => { scan_string(tcltrim(*param)); !is_literal(*param) },
-            Code::Expr => !is_literal(*param),
-            Code::Literal => !is_literal(*param),
+            Code::Block => { scan_string(tcltrim(param.val)); !is_literal(param) },
+            Code::Expr => !is_literal(param),
+            Code::Literal => !is_literal(param),
             Code::Normal => false,
         }
     }
