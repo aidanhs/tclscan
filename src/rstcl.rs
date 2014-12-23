@@ -1,5 +1,7 @@
 use std::mem::uninitialized;
 use tcl;
+use rstcl::TokenType::*;
+use std::iter::AdditiveIterator;
 
 static mut I: Option<*mut tcl::Tcl_Interp> = None;
 unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
@@ -7,6 +9,33 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
         I = Some(tcl::Tcl_CreateInterp());
     }
     return I.unwrap();
+}
+
+#[deriving(FromPrimitive, Show, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum TokenType {
+    TCL_TOKEN_WORD = 1,
+    TCL_TOKEN_SIMPLE_WORD = 2,
+    TCL_TOKEN_TEXT = 4,
+    TCL_TOKEN_BS = 8,
+    TCL_TOKEN_COMMAND = 16,
+    TCL_TOKEN_VARIABLE = 32,
+    TCL_TOKEN_SUB_EXPR = 64,
+    TCL_TOKEN_OPERATOR = 128,
+    TCL_TOKEN_EXPAND_WORD = 256,
+}
+
+#[deriving(Show, PartialEq)]
+pub struct TclParse<'a> {
+    pub comment: &'a str,
+    pub command: &'a str,
+    pub tokens: Vec<TclToken<'a>>,
+}
+#[deriving(Show, PartialEq)]
+pub struct TclToken<'a> {
+    pub ttype: TokenType,
+    pub val: &'a str,
+    pub tokens: Vec<TclToken<'a>>,
 }
 
 /// Takes: a script
@@ -17,13 +46,65 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
 /// - and the remaining script.
 ///
 /// ```
+/// use tclscan::rstcl::{TclParse,TclToken};
+/// use tclscan::rstcl::TokenType::{TCL_TOKEN_SIMPLE_WORD,TCL_TOKEN_WORD,TCL_TOKEN_VARIABLE,TCL_TOKEN_TEXT,TCL_TOKEN_COMMAND};
 /// use tclscan::rstcl::parse_command;
-/// assert!(parse_command("a b $c [d]") == ("", "a b $c [d]", vec!["a", "b", "$c", "[d]"], ""))
-/// assert!(parse_command(" a\n") == ("", "a\n", vec!["a"], ""))
-/// assert!(parse_command("a; b") == ("", "a;", vec!["a"], " b"))
-/// assert!(parse_command("#comment\n\n\na\n") == ("#comment\n", "a\n", vec!["a"], ""))
+/// assert!(parse_command("a b $c [d]") == (TclParse {
+///     comment: "",
+///     command: "a b $c [d]",
+///     tokens: vec![
+///         TclToken {
+///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
+///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///         },
+///         TclToken {
+///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "b",
+///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "b", tokens: vec![] }]
+///         },
+///         TclToken {
+///             ttype: TCL_TOKEN_WORD, val: "$c",
+///             tokens: vec![
+///                 TclToken {
+///                     ttype: TCL_TOKEN_VARIABLE, val: "$c",
+///                     tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "c", tokens: vec![] }]
+///                 }
+///             ]
+///         },
+///         TclToken {
+///             ttype: TCL_TOKEN_WORD, val: "[d]",
+///             tokens: vec![TclToken { ttype: TCL_TOKEN_COMMAND, val: "[d]", tokens: vec![] }]
+///         }
+///     ]
+/// }, ""));
+/// assert!(parse_command(" a\n") == (TclParse {
+///     comment: "", command: "a\n",
+///     tokens: vec![
+///         TclToken {
+///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
+///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///         }
+///     ]
+/// }, ""));
+/// assert!(parse_command("a; b") == (TclParse {
+///     comment: "", command: "a;",
+///     tokens: vec![
+///         TclToken {
+///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
+///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///         }
+///     ]
+/// }, " b"));
+/// assert!(parse_command("#comment\n\n\na\n") == (TclParse {
+///     comment: "#comment\n", command: "a\n",
+///     tokens: vec![
+///         TclToken {
+///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
+///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///         }
+///     ]
+/// }, ""));
 /// ```
-pub fn parse_command<'a>(script: &'a str) -> (&'a str, &'a str, Vec<&'a str>, &'a str) {
+pub fn parse_command<'a>(script: &'a str) -> (TclParse<'a>, &'a str) {
     unsafe {
         let mut parse: tcl::Tcl_Parse = uninitialized();
         let parse_ptr: *mut tcl::Tcl_Parse = &mut parse;
@@ -36,41 +117,100 @@ pub fn parse_command<'a>(script: &'a str) -> (&'a str, &'a str, Vec<&'a str>, &'
         // interp, start, numBytes, nested, parsePtr
         if tcl::Tcl_ParseCommand(tcl_interp(), script_ptr, -1, 0, parse_ptr) != 0 {
             println!("WARN: couldn't parse {}", script);
-            return ("", "", Vec::new(), "");
+            return (TclParse { comment: "", command: "", tokens: vec![] }, "");
         }
-        let token_strs = get_tokens(script, &parse, script_start);
+        let tclparse = make_tclparse(script, script_start, &parse);
 
-        // commentStart seems to be undefined if commentSize == 0
-        let comment = match parse.commentSize.to_uint().unwrap() {
-            0 => "",
-            l => {
-                let offset = parse.commentStart as uint - script_start;
-                script[offset..offset+l]
-            },
-        };
         let command_len = parse.commandSize.to_uint().unwrap();
         let command_off = parse.commandStart as uint - script_start;
-        let command = script[command_off..command_off+command_len];
         let remaining = script[command_off+command_len..];
 
         tcl::Tcl_FreeParse(parse_ptr);
-        return (comment, command, token_strs, remaining);
+        return (tclparse, remaining);
     }
 }
 
-unsafe fn get_tokens<'a>(script: &'a str, parse: &tcl::Tcl_Parse, script_start: uint) -> Vec<&'a str> {
-    let num = parse.numTokens as int;
-    let token_ptr = parse.tokenPtr;
-    let mut token_strs = Vec::new();
-    let mut i = 0;
-    while i < num {
-        let token = *token_ptr.offset(i);
-        let offset = token.start as uint - script_start;
-        let size = token.size.to_uint().unwrap();
-        let token_str = script[offset..offset+size];
-        token_strs.push(token_str);
-        i += token.numComponents as int;
-        i += 1;
+unsafe fn make_tclparse<'a>(script: &'a str, script_start: uint, tcl_parse: &tcl::Tcl_Parse) -> TclParse<'a> {
+
+    // commentStart seems to be undefined if commentSize == 0
+    let comment = match tcl_parse.commentSize.to_uint().unwrap() {
+        0 => "",
+        l => {
+            let offset = tcl_parse.commentStart as uint - script_start;
+            script[offset..offset+l]
+        },
+    };
+    let command_len = tcl_parse.commandSize.to_uint().unwrap();
+    let command_off = tcl_parse.commandStart as uint - script_start;
+    let command = script[command_off..command_off+command_len];
+
+    let mut acc = vec![];
+    for i in range(0, tcl_parse.numTokens as int).rev() {
+        let tcl_token = *(tcl_parse.tokenPtr).offset(i);
+        assert!(tcl_token.start as uint > 0);
+        let offset = tcl_token.start as uint - script_start;
+        let token_size = tcl_token.size.to_uint().unwrap();
+        let tokenval = script[offset..offset+token_size];
+        make_tcltoken(&tcl_token, tokenval, &mut acc);
     }
-    return token_strs;
+    assert!(acc.len() == tcl_parse.numWords.to_uint().unwrap());
+    acc.reverse();
+    return TclParse { comment: comment, command: command, tokens: acc };
+}
+
+fn count_tokens(token: &TclToken) -> uint {
+    token.tokens.iter().map(|t| count_tokens(t)).sum() + 1
+}
+
+fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Vec<TclToken<'a>>) {
+    let token_type: TokenType = FromPrimitive::from_uint(tcl_token._type.to_uint().unwrap()).unwrap();
+    let num_subtokens = tcl_token.numComponents.to_uint().unwrap();
+
+    let subtokens = match token_type {
+        TCL_TOKEN_WORD | TCL_TOKEN_EXPAND_WORD => {
+            let mut subtokens = vec![];
+            let mut count = 0;
+            while count < num_subtokens {
+                assert!(acc.len() > 0);
+                let tok = acc.pop().unwrap();
+                count += count_tokens(&tok);
+                subtokens.push(tok);
+            }
+            assert!(count == num_subtokens);
+            subtokens
+        },
+        TCL_TOKEN_SIMPLE_WORD => {
+            assert!(acc.len() > 0);
+            assert!(num_subtokens == 1);
+            let tok = acc.pop().unwrap();
+            assert!(tok.ttype == TCL_TOKEN_TEXT);
+            vec![tok]
+        },
+        TCL_TOKEN_TEXT | TCL_TOKEN_BS | TCL_TOKEN_COMMAND => {
+            assert!(num_subtokens == 0);
+            vec![]
+        },
+        TCL_TOKEN_VARIABLE => {
+            assert!(acc.len() > 0);
+            let tok = acc.pop().unwrap();
+            assert!(tok.ttype == TCL_TOKEN_TEXT);
+            let mut subtokens = vec![tok];
+            let mut count = 1;
+            while count < num_subtokens {
+                assert!(acc.len() > 0);
+                let tok = acc.pop().unwrap();
+                count += match tok.ttype {
+                    TCL_TOKEN_TEXT | TCL_TOKEN_BS | TCL_TOKEN_COMMAND | TCL_TOKEN_VARIABLE => count_tokens(&tok),
+                    _ => panic!("Invalid token type {}", tok.ttype),
+                };
+                subtokens.push(tok);
+            }
+            assert!(count == num_subtokens);
+            subtokens
+        },
+        //TCL_TOKEN_SUB_EXPR => ,
+        //TCL_TOKEN_OPERATOR => ,
+        _ => panic!("Unrecognised token type {}", token_type),
+    };
+    acc.push(TclToken { val: tokenval, tokens: subtokens, ttype: token_type })
 }

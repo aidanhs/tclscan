@@ -1,4 +1,5 @@
 #![feature(slicing_syntax)]
+#![feature(globs)]
 
 extern crate libc;
 
@@ -57,7 +58,8 @@ fn tcltrim(string: &str) -> &str {
     }
     return string[1..string.len()-1];
 }
-fn is_command_insecure(token_strs: Vec<&str>) -> Result<bool, &str> {
+fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
+    let token_strs: Vec<&str> = tokens.iter().map(|e| e.val).collect();
     let param_types = match token_strs[0] {
         // eval script
         "eval" => Vec::from_elem(token_strs.len()-1, Code::Block),
@@ -111,13 +113,14 @@ fn is_command_insecure(token_strs: Vec<&str>) -> Result<bool, &str> {
 fn scan_string<'a>(string: &'a str) {
     let mut script: &'a str = string;
     while script.len() > 0 {
-        let (_, command, token_strs, remaining) = rstcl::parse_command(script);
+        let (parse, remaining) = rstcl::parse_command(script);
         script = remaining;
-        if token_strs.len() == 0 {
+        if parse.tokens.len() == 0 {
             continue;
         }
-        match is_command_insecure(token_strs) {
-            Ok(true) => println!("DANGER: {}", command.trim_right_chars('\n')),
+        let command = parse.command;
+        match is_command_insecure(parse.tokens) {
+            Ok(true) => println!("DANGER: {}", command),
             Ok(false) => (),
             Err(e) => println!("WARN: {}", e),
         }
