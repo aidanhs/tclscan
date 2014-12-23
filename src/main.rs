@@ -1,7 +1,20 @@
 extern crate tclscan;
 use std::os;
+use tclscan::rstcl;
+
+static HELP: &'static str =
+r"tclscan file <path>
+tclscan str <string>";
 
 pub fn main() {
     let args = os::args();
-    tclscan::scan_file(args[1].as_slice());
+    match args.as_slice() {
+        [_, ref op, ref arg] if *op == "file" => {
+            tclscan::scan_file(arg.as_slice());
+        },
+        [_, ref op, ref arg] if *op == "str" => {
+            println!("{}", rstcl::parse_command(arg.as_slice()));
+        },
+        x => println!("{}, {}", HELP, x)
+    };
 }
