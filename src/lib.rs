@@ -59,7 +59,24 @@ fn tcltrim(string: &str) -> &str {
     }
     return string[1..string.len()-1];
 }
-fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
+
+/// Checks if a parsed command is insecure
+///
+/// ```
+/// use tclscan;
+/// use tclscan::rstcl;
+/// fn check(cmd: &str, insecure: bool) {
+///     let (parse, _) = rstcl::parse_command(cmd);
+///     assert!(Ok(insecure) == tclscan::is_command_insecure(parse.tokens));
+/// }
+/// check("puts x", false);
+/// check("puts [x]", false);
+/// check("expr {[blah]}", false);
+/// check("expr \"[blah]\"", true);
+/// // check("if [info exists abc] {}", false);
+/// // check("expr {[expr \"[blah]\"]}", true);
+/// ```
+pub fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
     let param_types = match tokens[0].val {
         // eval script
         "eval" => Vec::from_elem(tokens.len()-1, Code::Block),
