@@ -47,6 +47,11 @@ fn is_literal(token: &rstcl::TclToken) -> bool {
 fn is_safe_val(token: &rstcl::TclToken) -> bool {
     let token_str = token.val;
     assert!(token_str.len() > 0);
+    let var_tokens: Vec<&rstcl::TclToken> = token
+        .iter().filter(|t| t.ttype == rstcl::TokenType::TCL_TOKEN_VARIABLE).collect();
+    if var_tokens.len() > 0 {
+        return false;
+    }
     if is_literal(token) {
         return true;
     }

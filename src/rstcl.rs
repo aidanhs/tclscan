@@ -37,6 +37,43 @@ pub struct TclToken<'a> {
     pub val: &'a str,
     pub tokens: Vec<TclToken<'a>>,
 }
+impl<'b> TclToken<'b> {
+    pub fn iter<'a>(&'a self) -> TclTokenIter<'a, 'b> {
+        TclTokenIter {
+            token: self,
+            cur: 0,
+        }
+    }
+    fn traverse(&self, num: uint) -> (uint, Option<&TclToken<'b>>) {
+        if num == 0 {
+            return (0, Some(self));
+        }
+        let mut numleft = num - 1;
+        for subtok in self.tokens.iter() {
+            match subtok.traverse(numleft) {
+                (0, Some(tok)) => { return (0, Some(tok)); },
+                (n, None) => { numleft = n; },
+                _ => assert!(false),
+            }
+        }
+        return (numleft, None);
+    }
+}
+pub struct TclTokenIter<'a, 'b: 'a> {
+    token: &'a TclToken<'b>,
+    cur: uint,
+}
+impl<'b, 'c: 'b> Iterator<&'b TclToken<'c>> for TclTokenIter<'b, 'c> {
+    fn next(&mut self) -> Option<&'b TclToken<'c>> {
+        self.cur += 1;
+        let ret: Option<&'b TclToken<'c>> = match self.token.traverse(self.cur-1) {
+            (0, Some(tok)) => Some(tok),
+            (0, None) => None,
+            x => panic!("Invalid traverse return {}, iterator called after finish?", x),
+        };
+        return ret;
+    }
+}
 
 /// Takes: a script
 /// Returns:
