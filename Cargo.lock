@@ -2,11 +2,11 @@
 name = "tclscan"
 version = "0.0.1"
 dependencies = [
- "rust-bindgen 0.13.0 (git+https://github.com/aidanhs/rust-bindgen.git?ref=aphs-unsafety)",
+ "rust-bindgen 0.13.0 (git+https://github.com/danburkert/rust-bindgen.git)",
 ]
 
 [[package]]
 name = "rust-bindgen"
 version = "0.13.0"
-source = "git+https://github.com/aidanhs/rust-bindgen.git?ref=aphs-unsafety#c2691c54e040bdf1efc5f546611151582769729f"
+source = "git+https://github.com/danburkert/rust-bindgen.git#f8486b82d37df39f5193774de82c304fd5da0027"
 
