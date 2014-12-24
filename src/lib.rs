@@ -24,7 +24,7 @@ mod tcl;
 pub fn scan_file(path: &str) {
     let mut file = File::open(&Path::new(path));
     match file.read_to_string() {
-        Ok(v) => scan_string(v.as_slice()),
+        Ok(v) => scan_script(v.as_slice()),
         Err(e) => println!("WARN: Couldn't read {}: {}", path, e),
     }
 }
@@ -50,14 +50,6 @@ enum Code {
     Expr,
     Literal,
     Normal,
-}
-
-fn tcltrim(string: &str) -> &str {
-    if !(string.starts_with("{") && string.ends_with("}")) {
-        println!("WARN: Not a block {}", string);
-        return "";
-    }
-    return string[1..string.len()-1];
 }
 
 /// Checks if a parsed command is insecure
@@ -118,7 +110,7 @@ pub fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
     let mut insecure = false;
     for (param_type, param) in param_types.iter().zip(tokens[1..].iter()) {
         insecure = insecure || match *param_type {
-            Code::Block => { scan_string(tcltrim(param.val)); !is_literal(param) },
+            Code::Block => scan_block(param),
             Code::Expr => !is_literal(param),
             Code::Literal => !is_literal(param),
             Code::Normal => false,
@@ -127,7 +119,20 @@ pub fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
     return Ok(insecure);
 }
 
-fn scan_string<'a>(string: &'a str) {
+/// Scans a block (i.e. should be quoted) for danger
+fn scan_block<'a>(token: &rstcl::TclToken) -> bool {
+    let block_str = token.val;
+    if !(block_str.starts_with("{") && block_str.ends_with("}")) {
+        println!("WARN: Not a block {}", block_str);
+        return !is_literal(token);
+    }
+    let script_str = block_str[1..block_str.len()-1];
+    scan_script(script_str);
+    return false;
+}
+
+/// Scans a sequence of commands for danger
+fn scan_script<'a>(string: &'a str) {
     let mut script: &'a str = string;
     while script.len() > 0 {
         let (parse, remaining) = rstcl::parse_command(script);
