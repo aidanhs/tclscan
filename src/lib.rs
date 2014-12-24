@@ -44,6 +44,14 @@ fn is_literal(token: &rstcl::TclToken) -> bool {
     return true;
 }
 
+fn is_safe_val(token: &rstcl::TclToken) -> bool {
+    let token_str = token.val;
+    assert!(token_str.len() > 0);
+    if is_literal(token) {
+        return true;
+    }
+    return false;
+}
 #[deriving(Clone)]
 enum Code {
     Block,
@@ -124,7 +132,7 @@ fn scan_block<'a>(token: &rstcl::TclToken) -> bool {
     let block_str = token.val;
     if !(block_str.starts_with("{") && block_str.ends_with("}")) {
         println!("WARN: Not a block {}", block_str);
-        return !is_literal(token);
+        return !is_safe_val(token);
     }
     let script_str = block_str[1..block_str.len()-1];
     scan_script(script_str);
