@@ -186,7 +186,12 @@ fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Ve
             assert!(tok.ttype == TCL_TOKEN_TEXT);
             vec![tok]
         },
-        TCL_TOKEN_TEXT | TCL_TOKEN_BS | TCL_TOKEN_COMMAND => {
+        TCL_TOKEN_TEXT | TCL_TOKEN_BS => {
+            assert!(num_subtokens == 0);
+            vec![]
+        },
+        TCL_TOKEN_COMMAND => {
+            assert!(tokenval.char_at(0) == '[');
             assert!(num_subtokens == 0);
             vec![]
         },
