@@ -94,7 +94,7 @@ enum Code {
 /// // check("if [info exists abc] {}", false);
 /// // check("expr {[expr \"[blah]\"]}", true);
 /// ```
-pub fn is_command_insecure(tokens: Vec<rstcl::TclToken>) -> Result<bool, &str> {
+pub fn is_command_insecure(tokens: &Vec<rstcl::TclToken>) -> Result<bool, &'static str> {
     let param_types = match tokens[0].val {
         // eval script
         "eval" => Vec::from_elem(tokens.len()-1, Code::Block),
@@ -166,9 +166,8 @@ fn scan_script<'a>(string: &'a str) {
         if parse.tokens.len() == 0 {
             continue;
         }
-        let command = parse.command;
-        match is_command_insecure(parse.tokens) {
-            Ok(true) => println!("DANGER: {}", command),
+        match is_command_insecure(&parse.tokens) {
+            Ok(true) => println!("DANGER: {}", parse.command),
             Ok(false) => (),
             Err(e) => println!("WARN: {}", e),
         }
