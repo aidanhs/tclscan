@@ -52,7 +52,25 @@ fn is_safe_var(token: &rstcl::TclToken) -> bool {
 
 fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
     assert!(token.ttype == TokenType::Command);
-    return false
+    assert!(token.val.starts_with("[") && token.val.ends_with("]"));
+    let cmd = token.val.slice(1, token.val.len()-1);
+    let (parse, remaining) = rstcl::parse_command(cmd);
+    assert!(parse.tokens.len() > 0 && remaining == "");
+    match is_command_insecure(&parse.tokens) {
+        Ok(true) => { return false },
+        Ok(false) => (),
+        Err(e) => println!("WARN: {}", e),
+    };
+    let token_strs: Vec<&str> = parse.tokens.iter().map(|e| e.val).collect();
+    return match token_strs.as_slice() {
+        ["info", "exists", ..] |
+        ["catch", ..] => true,
+        _ => false,
+    };
+}
+
+fn is_safe_expr(token: &rstcl::TclToken) -> bool {
+    return true;
 }
 
 fn is_safe_val(token: &rstcl::TclToken) -> bool {
@@ -137,7 +155,7 @@ pub fn is_command_insecure(tokens: &Vec<rstcl::TclToken>) -> Result<bool, &'stat
     for (param_type, param) in param_types.iter().zip(tokens[1..].iter()) {
         insecure = insecure || match *param_type {
             Code::Block => scan_block(param),
-            Code::Expr => !is_literal(param),
+            Code::Expr => scan_expr(param),
             Code::Literal => !is_literal(param),
             Code::Normal => false,
         }
@@ -149,11 +167,24 @@ pub fn is_command_insecure(tokens: &Vec<rstcl::TclToken>) -> Result<bool, &'stat
 fn scan_block<'a>(token: &rstcl::TclToken) -> bool {
     let block_str = token.val;
     if !(block_str.starts_with("{") && block_str.ends_with("}")) {
-        println!("WARN: Not a block {}", block_str);
+        println!("WARN: Unquoted block {}", block_str);
         return !is_safe_val(token);
     }
     let script_str = block_str[1..block_str.len()-1];
     scan_script(script_str);
+    return false;
+}
+
+/// Scans an expr (i.e. should be quoted) for danger
+fn scan_expr<'a>(token: &rstcl::TclToken) -> bool {
+    let expr_str = token.val;
+    if !(expr_str.starts_with("{") && expr_str.ends_with("}")) {
+        println!("WARN: Unquoted expr {}", expr_str);
+        return !is_safe_val(token);
+    }
+    // TODO
+    //let expr = rstcl::parse_expr(expr_str[1..expr_str.len()-1]);
+    //return !is_safe_expr(expr);
     return false;
 }
 
