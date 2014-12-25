@@ -45,19 +45,31 @@ fn is_literal(token: &rstcl::TclToken) -> bool {
     return true;
 }
 
-fn is_safe_val(token: &rstcl::TclToken) -> bool {
-    let token_str = token.val;
-    assert!(token_str.len() > 0);
-    let var_tokens: Vec<&rstcl::TclToken> = token
-        .iter().filter(|t| t.ttype == TokenType::Variable).collect();
-    if var_tokens.len() > 0 {
-        return false;
-    }
-    if is_literal(token) {
-        return true;
-    }
-    return false;
+fn is_safe_var(token: &rstcl::TclToken) -> bool {
+    assert!(token.ttype == TokenType::Variable);
+    return false
 }
+
+fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
+    assert!(token.ttype == TokenType::Command);
+    return false
+}
+
+fn is_safe_val(token: &rstcl::TclToken) -> bool {
+    assert!(token.val.len() > 0);
+    for tok in token.iter() {
+        let is_safe = match tok.ttype {
+            TokenType::Variable => is_safe_var(tok),
+            TokenType::Command => is_safe_cmd(tok),
+            _ => true,
+        };
+        if !is_safe {
+            return false;
+        }
+    }
+    return true;
+}
+
 #[deriving(Clone)]
 enum Code {
     Block,
