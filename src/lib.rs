@@ -4,6 +4,7 @@
 extern crate libc;
 
 use std::io::File;
+use rstcl::TokenType;
 
 pub mod rstcl;
 #[allow(dead_code, non_upper_case_globals, non_camel_case_types, non_snake_case, raw_pointer_deriving)]
@@ -48,7 +49,7 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
     let token_str = token.val;
     assert!(token_str.len() > 0);
     let var_tokens: Vec<&rstcl::TclToken> = token
-        .iter().filter(|t| t.ttype == rstcl::TokenType::TCL_TOKEN_VARIABLE).collect();
+        .iter().filter(|t| t.ttype == TokenType::Variable).collect();
     if var_tokens.len() > 0 {
         return false;
     }

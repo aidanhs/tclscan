@@ -1,7 +1,8 @@
 use std::mem::uninitialized;
+use std::iter::AdditiveIterator;
+
 use tcl;
 use rstcl::TokenType::*;
-use std::iter::AdditiveIterator;
 
 static mut I: Option<*mut tcl::Tcl_Interp> = None;
 unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
@@ -12,17 +13,16 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
 }
 
 #[deriving(FromPrimitive, Show, PartialEq)]
-#[allow(non_camel_case_types)]
 pub enum TokenType {
-    TCL_TOKEN_WORD = 1,
-    TCL_TOKEN_SIMPLE_WORD = 2,
-    TCL_TOKEN_TEXT = 4,
-    TCL_TOKEN_BS = 8,
-    TCL_TOKEN_COMMAND = 16,
-    TCL_TOKEN_VARIABLE = 32,
-    TCL_TOKEN_SUB_EXPR = 64,
-    TCL_TOKEN_OPERATOR = 128,
-    TCL_TOKEN_EXPAND_WORD = 256,
+    Word = 1, // TCL_TOKEN_WORD
+    SimpleWord = 2, // TCL_TOKEN_SIMPLE_WORD
+    Text = 4, // TCL_TOKEN_TEXT
+    Bs = 8, // TCL_TOKEN_BS
+    Command = 16, // TCL_TOKEN_COMMAND
+    Variable = 32, // TCL_TOKEN_VARIABLE
+    SubExpr = 64, // TCL_TOKEN_SUB_EXPR
+    Operator = 128, // TCL_TOKEN_OPERATOR
+    ExpandWord = 256, // TCL_TOKEN_EXPAND_WORD
 }
 
 #[deriving(Show, PartialEq)]
@@ -84,32 +84,32 @@ impl<'b, 'c: 'b> Iterator<&'b TclToken<'c>> for TclTokenIter<'b, 'c> {
 ///
 /// ```
 /// use tclscan::rstcl::{TclParse,TclToken};
-/// use tclscan::rstcl::TokenType::{TCL_TOKEN_SIMPLE_WORD,TCL_TOKEN_WORD,TCL_TOKEN_VARIABLE,TCL_TOKEN_TEXT,TCL_TOKEN_COMMAND};
+/// use tclscan::rstcl::TokenType::{SimpleWord,Word,Variable,Text,Command};
 /// use tclscan::rstcl::parse_command;
 /// assert!(parse_command("a b $c [d]") == (TclParse {
 ///     comment: "",
 ///     command: "a b $c [d]",
 ///     tokens: vec![
 ///         TclToken {
-///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
-///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///             ttype: SimpleWord, val: "a",
+///             tokens: vec![TclToken { ttype: Text, val: "a", tokens: vec![] }]
 ///         },
 ///         TclToken {
-///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "b",
-///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "b", tokens: vec![] }]
+///             ttype: SimpleWord, val: "b",
+///             tokens: vec![TclToken { ttype: Text, val: "b", tokens: vec![] }]
 ///         },
 ///         TclToken {
-///             ttype: TCL_TOKEN_WORD, val: "$c",
+///             ttype: Word, val: "$c",
 ///             tokens: vec![
 ///                 TclToken {
-///                     ttype: TCL_TOKEN_VARIABLE, val: "$c",
-///                     tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "c", tokens: vec![] }]
+///                     ttype: Variable, val: "$c",
+///                     tokens: vec![TclToken { ttype: Text, val: "c", tokens: vec![] }]
 ///                 }
 ///             ]
 ///         },
 ///         TclToken {
-///             ttype: TCL_TOKEN_WORD, val: "[d]",
-///             tokens: vec![TclToken { ttype: TCL_TOKEN_COMMAND, val: "[d]", tokens: vec![] }]
+///             ttype: Word, val: "[d]",
+///             tokens: vec![TclToken { ttype: Command, val: "[d]", tokens: vec![] }]
 ///         }
 ///     ]
 /// }, ""));
@@ -117,8 +117,8 @@ impl<'b, 'c: 'b> Iterator<&'b TclToken<'c>> for TclTokenIter<'b, 'c> {
 ///     comment: "", command: "a\n",
 ///     tokens: vec![
 ///         TclToken {
-///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
-///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///             ttype: SimpleWord, val: "a",
+///             tokens: vec![TclToken { ttype: Text, val: "a", tokens: vec![] }]
 ///         }
 ///     ]
 /// }, ""));
@@ -126,8 +126,8 @@ impl<'b, 'c: 'b> Iterator<&'b TclToken<'c>> for TclTokenIter<'b, 'c> {
 ///     comment: "", command: "a;",
 ///     tokens: vec![
 ///         TclToken {
-///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
-///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///             ttype: SimpleWord, val: "a",
+///             tokens: vec![TclToken { ttype: Text, val: "a", tokens: vec![] }]
 ///         }
 ///     ]
 /// }, " b"));
@@ -135,8 +135,8 @@ impl<'b, 'c: 'b> Iterator<&'b TclToken<'c>> for TclTokenIter<'b, 'c> {
 ///     comment: "#comment\n", command: "a\n",
 ///     tokens: vec![
 ///         TclToken {
-///             ttype: TCL_TOKEN_SIMPLE_WORD, val: "a",
-///             tokens: vec![TclToken { ttype: TCL_TOKEN_TEXT, val: "a", tokens: vec![] }]
+///             ttype: SimpleWord, val: "a",
+///             tokens: vec![TclToken { ttype: Text, val: "a", tokens: vec![] }]
 ///         }
 ///     ]
 /// }, ""));
@@ -204,7 +204,7 @@ fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Ve
     let num_subtokens = tcl_token.numComponents.to_uint().unwrap();
 
     let subtokens = match token_type {
-        TCL_TOKEN_WORD | TCL_TOKEN_EXPAND_WORD => {
+        Word | ExpandWord => {
             let mut subtokens = vec![];
             let mut count = 0;
             while count < num_subtokens {
@@ -216,33 +216,33 @@ fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Ve
             assert!(count == num_subtokens);
             subtokens
         },
-        TCL_TOKEN_SIMPLE_WORD => {
+        SimpleWord => {
             assert!(acc.len() > 0);
             assert!(num_subtokens == 1);
             let tok = acc.pop().unwrap();
-            assert!(tok.ttype == TCL_TOKEN_TEXT);
+            assert!(tok.ttype == Text);
             vec![tok]
         },
-        TCL_TOKEN_TEXT | TCL_TOKEN_BS => {
+        Text | Bs => {
             assert!(num_subtokens == 0);
             vec![]
         },
-        TCL_TOKEN_COMMAND => {
+        Command => {
             assert!(tokenval.char_at(0) == '[');
             assert!(num_subtokens == 0);
             vec![]
         },
-        TCL_TOKEN_VARIABLE => {
+        Variable => {
             assert!(acc.len() > 0);
             let tok = acc.pop().unwrap();
-            assert!(tok.ttype == TCL_TOKEN_TEXT);
+            assert!(tok.ttype == Text);
             let mut subtokens = vec![tok];
             let mut count = 1;
             while count < num_subtokens {
                 assert!(acc.len() > 0);
                 let tok = acc.pop().unwrap();
                 count += match tok.ttype {
-                    TCL_TOKEN_TEXT | TCL_TOKEN_BS | TCL_TOKEN_COMMAND | TCL_TOKEN_VARIABLE => count_tokens(&tok),
+                    Text | Bs | Command | Variable => count_tokens(&tok),
                     _ => panic!("Invalid token type {}", tok.ttype),
                 };
                 subtokens.push(tok);
@@ -250,8 +250,8 @@ fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Ve
             assert!(count == num_subtokens);
             subtokens
         },
-        //TCL_TOKEN_SUB_EXPR => ,
-        //TCL_TOKEN_OPERATOR => ,
+        //SubExpr => ,
+        //Operator => ,
         _ => panic!("Unrecognised token type {}", token_type),
     };
     acc.push(TclToken { val: tokenval, tokens: subtokens, ttype: token_type })
