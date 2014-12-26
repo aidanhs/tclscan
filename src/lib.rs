@@ -132,6 +132,8 @@ pub fn is_command_insecure(tokens: &Vec<rstcl::TclToken>) -> Result<bool, &'stat
         "for" => vec![Code::Block, Code::Expr, Code::Block, Code::Block],
         // foreach [varname list]+ body
         "foreach" => vec![Code::Literal, Code::Normal, Code::Block],
+        // while cond body
+        "while" => vec![Code::Expr, Code::Block],
         // if cond body [elseif cond body]* [else body]?
         "if" => {
             let mut param_types = vec![Code::Expr, Code::Block];
