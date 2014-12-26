@@ -103,7 +103,7 @@ enum Code {
 /// use tclscan::rstcl;
 /// fn check(cmd: &str, insecure: bool) {
 ///     let (parse, _) = rstcl::parse_command(cmd);
-///     assert!(Ok(insecure) == tclscan::is_command_insecure(parse.tokens));
+///     assert!(Ok(insecure) == tclscan::is_command_insecure(&parse.tokens));
 /// }
 /// check("puts x", false);
 /// check("puts [x]", false);
