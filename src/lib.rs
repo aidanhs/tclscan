@@ -70,6 +70,26 @@ fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
 }
 
 fn is_safe_expr(token: &rstcl::TclToken) -> bool {
+    assert!(token.ttype == TokenType::SimpleWord);
+    assert!(token.val.starts_with("{") && token.val.ends_with("}"));
+    let expr = token.val.slice(1, token.val.len()-1);
+    let (parse, remaining) = rstcl::parse_expr(expr);
+    assert!(parse.tokens.len() == 1 && remaining == "");
+    for tok in parse.tokens[0].iter() {
+        let is_safe = match tok.ttype {
+            TokenType::Command => {
+                assert!(tok.val.starts_with("[") && tok.val.ends_with("]"));
+                let cmd = tok.val.slice(1, tok.val.len()-1);
+                let (parse, remaining) = rstcl::parse_command(cmd);
+                assert!(parse.tokens.len() > 0 && remaining == "");
+                !is_command_insecure(&parse.tokens).unwrap()
+            },
+            _ => true,
+        };
+        if !is_safe {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -184,10 +204,7 @@ fn scan_expr<'a>(token: &rstcl::TclToken) -> bool {
         println!("WARN: Unquoted expr {}", expr_str);
         return !is_safe_val(token);
     }
-    // TODO
-    //let expr = rstcl::parse_expr(expr_str[1..expr_str.len()-1]);
-    //return !is_safe_expr(expr);
-    return false;
+    return !is_safe_expr(token);
 }
 
 /// Scans a sequence of commands for danger
