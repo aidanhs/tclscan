@@ -113,6 +113,7 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// assert!(c(&p("expr {[expr \"[blah]\"]}").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
 /// ```
 pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
+    let mut results = vec![];
     let param_types = match tokens[0].val {
         // eval script
         "eval" => Vec::from_elem(tokens.len()-1, Code::Block),
@@ -151,17 +152,17 @@ pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
         _ => Vec::from_elem(tokens.len()-1, Code::Normal),
     };
     if param_types.len() != tokens.len() - 1 {
-        return vec![Warn("badly formed command")];
+        results.push(Warn("badly formed command"));
+        return results;
     }
-    let mut results = vec![];
     for (param_type, param) in param_types.iter().zip(tokens[1..].iter()) {
-        let check_result: Vec<CheckResult> = match *param_type {
+        let check_results: Vec<CheckResult> = match *param_type {
             Code::Block => check_block(param),
             Code::Expr => check_expr(param),
             Code::Literal => check_literal(param),
             Code::Normal => vec![],
         };
-        results.extend(check_result.into_iter());
+        results.extend(check_results.into_iter());
     }
     return results;
 }
@@ -186,28 +187,26 @@ fn check_block<'a>(token: &rstcl::TclToken) -> Vec<CheckResult> {
 
 /// Scans an expr (i.e. should be quoted) for danger
 fn check_expr<'a>(token: &rstcl::TclToken) -> Vec<CheckResult> {
-    let mut result = vec![];
+    let mut results = vec![];
     let expr_str = token.val;
     if !(expr_str.starts_with("{") && expr_str.ends_with("}")) {
-        result.push(match is_safe_val(token) {
+        results.push(match is_safe_val(token) {
             true => Warn("Unquoted expr"),
             false => Danger("Dangerous unquoted expr"),
         });
-        return result;
+        return results;
     };
+    // Technically this is the 'scan_expr' function
     // Expr isn't inherently dangerous, let's check functions inside the expr
     assert!(token.val.starts_with("{") && token.val.ends_with("}"));
     let expr = token.val.slice(1, token.val.len()-1);
     let (parse, remaining) = rstcl::parse_expr(expr);
     assert!(parse.tokens.len() == 1 && remaining == "");
-    for tok in parse.tokens[0].iter() {
-        if tok.ttype != TokenType::Command {
-            continue;
-        }
+    for tok in parse.tokens[0].iter().filter(|tok| tok.ttype == TokenType::Command) {
         let parse = rstcl::parse_command_token(tok);
-        result.extend(check_command(&parse.tokens).into_iter());
+        results.extend(check_command(&parse.tokens).into_iter());
     }
-    return result;
+    return results;
 }
 
 /// Scans a sequence of commands for danger
