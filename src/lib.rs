@@ -4,6 +4,7 @@
 extern crate libc;
 
 use std::io::File;
+use self::CheckResult::*; // TODO: why does swapping this line with one below break?
 use rstcl::TokenType;
 
 pub mod rstcl;
@@ -22,6 +23,21 @@ mod tcl;
 //    bindgen!("./mytcl.h", match="tcl.h", link="tclstub")
 //}
 
+// TODO: remove show
+#[deriving(PartialEq, Show)]
+pub enum CheckResult {
+    Warn(&'static str),
+    Danger(&'static str),
+}
+
+#[deriving(Clone)]
+enum Code {
+    Block,
+    Expr,
+    Literal,
+    Normal,
+}
+
 pub fn scan_file(path: &str) {
     let mut file = File::open(&Path::new(path));
     match file.read_to_string() {
@@ -30,37 +46,31 @@ pub fn scan_file(path: &str) {
     }
 }
 
-fn is_literal(token: &rstcl::TclToken) -> bool {
+fn check_literal(token: &rstcl::TclToken) -> Vec<CheckResult> {
     let token_str = token.val;
     assert!(token_str.len() > 0);
-    if token_str.char_at(0) == '{' {
-        return true;
+    return if token_str.char_at(0) == '{' {
+        vec![]
+    } else if token_str.contains_char('$') {
+        vec![Danger("Expected literal, found $")]
+    } else if token_str.contains_char('[') {
+        vec![Danger("Expected literal, found [")]
+    } else {
+        vec![]
     }
-    if token_str.contains_char('$') {
-        return false;
-    }
-    if token_str.contains_char('[') {
-        return false;
-    }
-    return true;
 }
 
+// Does this variable only contain safe characters?
+// Only used by is_safe_val
 fn is_safe_var(token: &rstcl::TclToken) -> bool {
     assert!(token.ttype == TokenType::Variable);
     return false
 }
 
+// Does the return value of this function only contain safe characters?
+// Only used by is_safe_val.
 fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
-    assert!(token.ttype == TokenType::Command);
-    assert!(token.val.starts_with("[") && token.val.ends_with("]"));
-    let cmd = token.val.slice(1, token.val.len()-1);
-    let (parse, remaining) = rstcl::parse_command(cmd);
-    assert!(parse.tokens.len() > 0 && remaining == "");
-    match is_command_insecure(&parse.tokens) {
-        Ok(true) => { return false },
-        Ok(false) => (),
-        Err(e) => println!("WARN: {}", e),
-    };
+    let parse = rstcl::parse_command_token(token);
     let token_strs: Vec<&str> = parse.tokens.iter().map(|e| e.val).collect();
     return match token_strs.as_slice() {
         ["info", "exists", ..] |
@@ -69,29 +79,10 @@ fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
     };
 }
 
-fn is_safe_expr(token: &rstcl::TclToken) -> bool {
-    assert!(token.val.starts_with("{") && token.val.ends_with("}"));
-    let expr = token.val.slice(1, token.val.len()-1);
-    let (parse, remaining) = rstcl::parse_expr(expr);
-    assert!(parse.tokens.len() == 1 && remaining == "");
-    for tok in parse.tokens[0].iter() {
-        let is_safe = match tok.ttype {
-            TokenType::Command => {
-                assert!(tok.val.starts_with("[") && tok.val.ends_with("]"));
-                let cmd = tok.val.slice(1, tok.val.len()-1);
-                let (parse, remaining) = rstcl::parse_command(cmd);
-                assert!(parse.tokens.len() > 0 && remaining == "");
-                !is_command_insecure(&parse.tokens).unwrap()
-            },
-            _ => true,
-        };
-        if !is_safe {
-            return false;
-        }
-    }
-    return true;
-}
-
+// Check whether a value can ever cause or assist in any security flaw i.e.
+// whether it may contain special characters.
+// We do *not* concern ourselves with vulnerabilities in sub-commands. That
+// should happen elsewhere.
 fn is_safe_val(token: &rstcl::TclToken) -> bool {
     assert!(token.val.len() > 0);
     for tok in token.iter() {
@@ -107,32 +98,21 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
     return true;
 }
 
-#[deriving(Clone)]
-enum Code {
-    Block,
-    Expr,
-    Literal,
-    Normal,
-}
-
 /// Checks if a parsed command is insecure
 ///
 /// ```
-/// use tclscan;
-/// use tclscan::rstcl;
-/// fn check(cmd: &str, insecure: bool) {
-///     let (parse, _) = rstcl::parse_command(cmd);
-///     assert!(Ok(insecure) == tclscan::is_command_insecure(&parse.tokens));
-/// }
-/// check("puts x", false);
-/// check("puts [x]", false);
-/// check("expr {[blah]}", false);
-/// check("expr \"[blah]\"", true);
-/// check("expr {\\\n0}", false);
-/// check("if [info exists abc] {}", false);
-/// check("expr {[expr \"[blah]\"]}", true);
+/// use tclscan::rstcl::parse_command as p;
+/// use tclscan::check_command as c;
+/// use tclscan::CheckResult::{Danger,Warn};
+/// assert!(c(&p("puts x").0.tokens) == vec![]);
+/// assert!(c(&p("puts [x]").0.tokens) == vec![]);
+/// assert!(c(&p("expr {[blah]}").0.tokens) == vec![]);
+/// assert!(c(&p("expr \"[blah]\"").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
+/// assert!(c(&p("expr {\\\n0}").0.tokens) == vec![]);
+/// assert!(c(&p("if [info exists abc] {}").0.tokens) == vec![Warn("Unquoted expr")]);
+/// assert!(c(&p("expr {[expr \"[blah]\"]}").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
 /// ```
-pub fn is_command_insecure(tokens: &Vec<rstcl::TclToken>) -> Result<bool, &'static str> {
+pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
     let param_types = match tokens[0].val {
         // eval script
         "eval" => Vec::from_elem(tokens.len()-1, Code::Block),
@@ -171,40 +151,63 @@ pub fn is_command_insecure(tokens: &Vec<rstcl::TclToken>) -> Result<bool, &'stat
         _ => Vec::from_elem(tokens.len()-1, Code::Normal),
     };
     if param_types.len() != tokens.len() - 1 {
-        return Err("badly formed command");
+        return vec![Warn("badly formed command")];
     }
-    let mut insecure = false;
+    let mut results = vec![];
     for (param_type, param) in param_types.iter().zip(tokens[1..].iter()) {
-        insecure = insecure || match *param_type {
-            Code::Block => scan_block(param),
-            Code::Expr => scan_expr(param),
-            Code::Literal => !is_literal(param),
-            Code::Normal => false,
-        }
+        let check_result: Vec<CheckResult> = match *param_type {
+            Code::Block => check_block(param),
+            Code::Expr => check_expr(param),
+            Code::Literal => check_literal(param),
+            Code::Normal => vec![],
+        };
+        results.extend(check_result.into_iter());
     }
-    return Ok(insecure);
+    return results;
 }
 
 /// Scans a block (i.e. should be quoted) for danger
-fn scan_block<'a>(token: &rstcl::TclToken) -> bool {
+fn check_block<'a>(token: &rstcl::TclToken) -> Vec<CheckResult> {
     let block_str = token.val;
     if !(block_str.starts_with("{") && block_str.ends_with("}")) {
-        println!("WARN: Unquoted block {}", block_str);
-        return !is_safe_val(token);
+        return vec!(match is_safe_val(token) {
+            true => Warn("Unquoted block"),
+            false => Danger("Dangerous unquoted block"),
+        });
     }
+    // Block isn't inherently dangerous, let's check functions inside the block
     let script_str = block_str[1..block_str.len()-1];
+    // Note that this is a void return - we don't really want to return all
+    // nested issue inside a block as problems of the parent (consider a very
+    // long proc).
     scan_script(script_str);
-    return false;
+    return vec![];
 }
 
 /// Scans an expr (i.e. should be quoted) for danger
-fn scan_expr<'a>(token: &rstcl::TclToken) -> bool {
+fn check_expr<'a>(token: &rstcl::TclToken) -> Vec<CheckResult> {
+    let mut result = vec![];
     let expr_str = token.val;
     if !(expr_str.starts_with("{") && expr_str.ends_with("}")) {
-        println!("WARN: Unquoted expr {}", expr_str);
-        return !is_safe_val(token);
+        result.push(match is_safe_val(token) {
+            true => Warn("Unquoted expr"),
+            false => Danger("Dangerous unquoted expr"),
+        });
+        return result;
+    };
+    // Expr isn't inherently dangerous, let's check functions inside the expr
+    assert!(token.val.starts_with("{") && token.val.ends_with("}"));
+    let expr = token.val.slice(1, token.val.len()-1);
+    let (parse, remaining) = rstcl::parse_expr(expr);
+    assert!(parse.tokens.len() == 1 && remaining == "");
+    for tok in parse.tokens[0].iter() {
+        if tok.ttype != TokenType::Command {
+            continue;
+        }
+        let parse = rstcl::parse_command_token(tok);
+        result.extend(check_command(&parse.tokens).into_iter());
     }
-    return !is_safe_expr(token);
+    return result;
 }
 
 /// Scans a sequence of commands for danger
@@ -216,10 +219,12 @@ fn scan_script<'a>(string: &'a str) {
         if parse.tokens.len() == 0 {
             continue;
         }
-        match is_command_insecure(&parse.tokens) {
-            Ok(true) => println!("DANGER: {}", parse.command.unwrap()),
-            Ok(false) => (),
-            Err(e) => println!("WARN: {}", e),
+        match check_command(&parse.tokens).as_slice() {
+            [] => (),
+            r => {
+                println!("DANGER/WARN: {}", parse.command.unwrap());
+                println!("{}", r);
+            },
         }
     }
 }

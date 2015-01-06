@@ -2,7 +2,7 @@ use std::mem::uninitialized;
 use std::iter::AdditiveIterator;
 
 use tcl;
-use rstcl::TokenType::*;
+use self::TokenType::*;
 
 static mut I: Option<*mut tcl::Tcl_Interp> = None;
 unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
@@ -138,6 +138,15 @@ impl<'b, 'c: 'b> Iterator<&'b TclToken<'c>> for TclTokenIter<'b, 'c> {
 /// ```
 pub fn parse_command<'a>(script: &'a str) -> (TclParse<'a>, &'a str) {
     return parse(script, true, false);
+}
+// Parses a TokenType::Command token contained in '[]'
+pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {
+    assert!(token.ttype == TokenType::Command);
+    assert!(token.val.starts_with("[") && token.val.ends_with("]"));
+    let cmd = token.val.slice(1, token.val.len()-1);
+    let (parse, remaining) = parse_command(cmd);
+    assert!(parse.tokens.len() > 0 && remaining == "");
+    return parse;
 }
 /// Takes: an expr
 /// Returns: a parse structure and the remaining script.
