@@ -217,7 +217,7 @@ fn scan_script<'a>(string: &'a str) {
             continue;
         }
         match is_command_insecure(&parse.tokens) {
-            Ok(true) => println!("DANGER: {}", parse.command),
+            Ok(true) => println!("DANGER: {}", parse.command.unwrap()),
             Ok(false) => (),
             Err(e) => println!("WARN: {}", e),
         }
