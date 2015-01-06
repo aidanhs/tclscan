@@ -145,7 +145,7 @@ pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {
     assert!(token.val.starts_with("[") && token.val.ends_with("]"));
     let cmd = token.val.slice(1, token.val.len()-1);
     let (parse, remaining) = parse_command(cmd);
-    assert!(parse.tokens.len() > 0 && remaining == "");
+    assert!(remaining == "");
     return parse;
 }
 /// Takes: an expr
