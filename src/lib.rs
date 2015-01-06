@@ -106,14 +106,30 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// use tclscan::CheckResult::{Danger,Warn};
 /// assert!(c(&p("puts x").0.tokens) == vec![]);
 /// assert!(c(&p("puts [x]").0.tokens) == vec![]);
+/// assert!(c(&p("puts [eval $x]").0.tokens) == vec![Danger("Dangerous unquoted block")]);
 /// assert!(c(&p("expr {[blah]}").0.tokens) == vec![]);
 /// assert!(c(&p("expr \"[blah]\"").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
 /// assert!(c(&p("expr {\\\n0}").0.tokens) == vec![]);
-/// assert!(c(&p("if [info exists abc] {}").0.tokens) == vec![Warn("Unquoted expr")]);
 /// assert!(c(&p("expr {[expr \"[blah]\"]}").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
+/// assert!(c(&p("if [info exists abc] {}").0.tokens) == vec![Warn("Unquoted expr")]);
+/// assert!(c(&p("if [abc] {}").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
+/// assert!(c(&p("a${x} blah").0.tokens) == vec![Warn("Non-literal command, cannot scan")]);
 /// ```
 pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
     let mut results = vec![];
+    // First check all subcommands which will be substituted
+    for tok in tokens.iter() {
+        for subtok in tok.iter().filter(|tok| tok.ttype == TokenType::Command) {
+            let parse = rstcl::parse_command_token(subtok);
+            results.extend(check_command(&parse.tokens).into_iter());
+        }
+    }
+    // Now check if the command name itself isn't a literal
+    if check_literal(&tokens[0]).into_iter().len() > 0 {
+        results.push(Warn("Non-literal command, cannot scan"));
+        return results;
+    }
+    // Now check the command-specific interpretation of arguments etc
     let param_types = match tokens[0].val {
         // eval script
         "eval" => Vec::from_elem(tokens.len()-1, Code::Block),
