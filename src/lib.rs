@@ -70,7 +70,6 @@ fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
 }
 
 fn is_safe_expr(token: &rstcl::TclToken) -> bool {
-    assert!(token.ttype == TokenType::SimpleWord);
     assert!(token.val.starts_with("{") && token.val.ends_with("}"));
     let expr = token.val.slice(1, token.val.len()-1);
     let (parse, remaining) = rstcl::parse_expr(expr);
@@ -129,6 +128,7 @@ enum Code {
 /// check("puts [x]", false);
 /// check("expr {[blah]}", false);
 /// check("expr \"[blah]\"", true);
+/// check("expr {\\\n0}", false);
 /// // check("if [info exists abc] {}", false);
 /// // check("expr {[expr \"[blah]\"]}", true);
 /// ```
