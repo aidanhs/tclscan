@@ -129,8 +129,8 @@ enum Code {
 /// check("expr {[blah]}", false);
 /// check("expr \"[blah]\"", true);
 /// check("expr {\\\n0}", false);
-/// // check("if [info exists abc] {}", false);
-/// // check("expr {[expr \"[blah]\"]}", true);
+/// check("if [info exists abc] {}", false);
+/// check("expr {[expr \"[blah]\"]}", true);
 /// ```
 pub fn is_command_insecure(tokens: &Vec<rstcl::TclToken>) -> Result<bool, &'static str> {
     let param_types = match tokens[0].val {
