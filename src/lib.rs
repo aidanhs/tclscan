@@ -1,14 +1,14 @@
 #![feature(slicing_syntax)]
-#![feature(globs)]
 
 extern crate libc;
 
 use std::io::File;
+use std::iter;
 use self::CheckResult::*; // TODO: why does swapping this line with one below break?
 use rstcl::TokenType;
 
 pub mod rstcl;
-#[allow(dead_code, non_upper_case_globals, non_camel_case_types, non_snake_case, raw_pointer_deriving)]
+#[allow(dead_code, non_upper_case_globals, non_camel_case_types, non_snake_case, raw_pointer_derive)]
 mod tcl;
 
 // http://www.tcl.tk/doc/howto/stubs.html
@@ -24,13 +24,13 @@ mod tcl;
 //}
 
 // TODO: remove show
-#[deriving(PartialEq, Show)]
+#[derive(PartialEq, Show)]
 pub enum CheckResult {
     Warn(&'static str),
     Danger(&'static str),
 }
 
-#[deriving(Clone)]
+#[derive(Clone)]
 enum Code {
     Block,
     Expr,
@@ -133,12 +133,13 @@ pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
     // Now check the command-specific interpretation of arguments etc
     let param_types = match tokens[0].val {
         // eval script
-        "eval" => Vec::from_elem(tokens.len()-1, Code::Block),
+        "eval" => iter::repeat(Code::Block).take(tokens.len()-1).collect(),
         // catch script [result]? [options]?
         "catch" => {
             let mut param_types = vec![Code::Block];
             if tokens.len() == 3 || tokens.len() == 4 {
-                param_types.push_all(Vec::from_elem(tokens.len()-2, Code::Literal).as_slice());
+                let new_params: Vec<Code> = iter::repeat(Code::Literal).take(tokens.len()-2).collect();
+                param_types.push_all(new_params.as_slice());
             }
             param_types
         }
@@ -166,7 +167,7 @@ pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
             }
             param_types
         },
-        _ => Vec::from_elem(tokens.len()-1, Code::Normal),
+        _ => iter::repeat(Code::Normal).take(tokens.len()-1).collect(),
     };
     if param_types.len() != tokens.len() - 1 {
         results.push(Warn("badly formed command"));

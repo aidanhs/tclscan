@@ -5,7 +5,7 @@ version = "0.0.1"
 authors = ["Aidan Hobson Sayers <aidanhs@cantab.net>"]
 
 [dependencies.rust-bindgen]
-git = "https://github.com/danburkert/rust-bindgen.git"
+git = "https://github.com/crabtw/rust-bindgen.git"
 branch = "master"
 
 [[bin]]
