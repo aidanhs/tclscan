@@ -4,6 +4,10 @@ name = "tclscan"
 version = "0.0.1"
 authors = ["Aidan Hobson Sayers <aidanhs@cantab.net>"]
 
+[dependencies]
+docopt = "0.6.30"
+docopt_macros = "0.6.30"
+
 [dependencies.rust-bindgen]
 git = "https://github.com/crabtw/rust-bindgen.git"
 branch = "master"
