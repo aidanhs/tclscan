@@ -4,6 +4,7 @@ extern crate libc;
 
 use std::io::File;
 use std::iter;
+use std::fmt;
 use self::CheckResult::*; // TODO: why does swapping this line with one below break?
 use rstcl::TokenType;
 
@@ -28,6 +29,14 @@ mod tcl;
 pub enum CheckResult {
     Warn(&'static str),
     Danger(&'static str),
+}
+impl fmt::String for CheckResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        return match self {
+            &Warn(s) => write!(f, "WARN: {}", s),
+            &Danger(s) => write!(f, "DANGER: {}", s),
+        };
+    }
 }
 
 #[derive(Clone)]
@@ -239,8 +248,11 @@ fn scan_script<'a>(string: &'a str) {
         match check_command(&parse.tokens).as_slice() {
             [] => (),
             r => {
-                println!("DANGER/WARN: {}", parse.command.unwrap());
-                println!("{:?}", r);
+                println!("COMMAND: {}", parse.command.unwrap().trim_right());
+                for check_result in r.iter() {
+                    println!("{}", check_result);
+                }
+                println!("");
             },
         }
     }
