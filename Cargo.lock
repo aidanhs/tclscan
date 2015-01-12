@@ -8,5 +8,5 @@ dependencies = [
 [[package]]
 name = "rust-bindgen"
 version = "0.13.0"
-source = "git+https://github.com/crabtw/rust-bindgen.git#06970f1901966cd807d4cbf621cd92940b8e217f"
+source = "git+https://github.com/crabtw/rust-bindgen.git#9d81b99a88b229962886a9b56f77d43ed28bae01"
 
