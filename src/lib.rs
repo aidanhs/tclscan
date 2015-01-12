@@ -237,7 +237,7 @@ fn check_expr<'a>(token: &rstcl::TclToken) -> Vec<CheckResult> {
 }
 
 /// Scans a sequence of commands for danger
-fn scan_script<'a>(string: &'a str) {
+pub fn scan_script<'a>(string: &'a str) {
     let mut script: &'a str = string;
     while script.len() > 0 {
         let (parse, remaining) = rstcl::parse_command(script);
