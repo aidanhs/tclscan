@@ -195,7 +195,7 @@ fn check_block<'a>(token: &rstcl::TclToken) -> Vec<CheckResult> {
         });
     }
     // Block isn't inherently dangerous, let's check functions inside the block
-    let script_str = block_str[1..block_str.len()-1];
+    let script_str = &block_str[1..block_str.len()-1];
     // Note that this is a void return - we don't really want to return all
     // nested issue inside a block as problems of the parent (consider a very
     // long proc).
@@ -240,7 +240,7 @@ fn scan_script<'a>(string: &'a str) {
             [] => (),
             r => {
                 println!("DANGER/WARN: {}", parse.command.unwrap());
-                println!("{}", r);
+                println!("{:?}", r);
             },
         }
     }

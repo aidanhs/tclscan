@@ -46,7 +46,7 @@ impl<'b> TclToken<'b> {
             cur: 0,
         }
     }
-    fn traverse(&self, num: uint) -> (uint, Option<&TclToken<'b>>) {
+    fn traverse(&self, num: usize) -> (usize, Option<&TclToken<'b>>) {
         if num == 0 {
             return (0, Some(self));
         }
@@ -63,7 +63,7 @@ impl<'b> TclToken<'b> {
 }
 pub struct TclTokenIter<'a, 'b: 'a> {
     token: &'a TclToken<'b>,
-    cur: uint,
+    cur: usize,
 }
 impl<'b, 'c: 'b> Iterator for TclTokenIter<'b, 'c> {
     type Item = &'b TclToken<'c>;
@@ -72,7 +72,7 @@ impl<'b, 'c: 'b> Iterator for TclTokenIter<'b, 'c> {
         let ret: Option<&'b TclToken<'c>> = match self.token.traverse(self.cur-1) {
             (0, Some(tok)) => Some(tok),
             (0, None) => None,
-            x => panic!("Invalid traverse return {}, iterator called after finish?", x),
+            x => panic!("Invalid traverse return {:?}, iterator called after finish?", x),
         };
         return ret;
     }
@@ -243,14 +243,14 @@ fn parse<'a>(script: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>,
         // https://github.com/rust-lang/rust/issues/16035
         let script_cstr = CString::from_slice(script.as_bytes());
         let script_ptr = script_cstr.as_ptr();
-        let script_start = script_ptr as uint;
+        let script_start = script_ptr as usize;
 
         let parsed = match (is_command, is_expr) {
             // interp, start, numBytes, nested, parsePtr
             (true, false) => tcl::Tcl_ParseCommand(tcl_interp(), script_ptr, -1, 0, parse_ptr),
             // interp, start, numBytes, parsePtr
             (false, true) => tcl::Tcl_ParseExpr(tcl_interp(), script_ptr, -1, parse_ptr),
-            parse_args => panic!("Don't know how to parse {}", parse_args),
+            parse_args => panic!("Don't know how to parse {:?}", parse_args),
         };
         if parsed != 0 {
             println!("WARN: couldn't parse {}", script);
@@ -260,19 +260,19 @@ fn parse<'a>(script: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>,
 
         let (tclparse, remaining) = match (is_command, is_expr) {
             (true, false) => {
-                assert!(tokens.len() == parse.numWords as uint);
+                assert!(tokens.len() == parse.numWords as usize);
                 // commentStart seems to be undefined if commentSize == 0
-                let comment = Some(match parse.commentSize as uint {
+                let comment = Some(match parse.commentSize as usize {
                     0 => "",
                     l => {
-                        let offset = parse.commentStart as uint - script_start;
-                        script[offset..offset+l]
+                        let offset = parse.commentStart as usize - script_start;
+                        &script[offset..offset+l]
                     },
                 });
-                let command_len = parse.commandSize as uint;
-                let command_off = parse.commandStart as uint - script_start;
-                let command = Some(script[command_off..command_off+command_len]);
-                let remaining = script[command_off+command_len..];
+                let command_len = parse.commandSize as usize;
+                let command_off = parse.commandStart as usize - script_start;
+                let command = Some(&script[command_off..command_off+command_len]);
+                let remaining = &script[command_off+command_len..];
                 (TclParse { comment: comment, command: command, tokens: tokens }, remaining)
             },
             (false, true) => {
@@ -286,27 +286,27 @@ fn parse<'a>(script: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>,
     }
 }
 
-unsafe fn make_tokens<'a>(script: &'a str, script_start: uint, tcl_parse: &tcl::Tcl_Parse) -> Vec<TclToken<'a>> {
+unsafe fn make_tokens<'a>(script: &'a str, script_start: usize, tcl_parse: &tcl::Tcl_Parse) -> Vec<TclToken<'a>> {
     let mut acc = vec![];
-    for i in range(0, tcl_parse.numTokens as int).rev() {
+    for i in range(0, tcl_parse.numTokens as isize).rev() {
         let tcl_token = *(tcl_parse.tokenPtr).offset(i);
-        assert!(tcl_token.start as uint > 0);
-        let offset = tcl_token.start as uint - script_start;
-        let token_size = tcl_token.size as uint;
-        let tokenval = script[offset..offset+token_size];
+        assert!(tcl_token.start as usize > 0);
+        let offset = tcl_token.start as usize - script_start;
+        let token_size = tcl_token.size as usize;
+        let tokenval = &script[offset..offset+token_size];
         make_tcltoken(&tcl_token, tokenval, &mut acc);
     }
     acc.reverse();
     return acc;
 }
 
-fn count_tokens(token: &TclToken) -> uint {
+fn count_tokens(token: &TclToken) -> usize {
     token.tokens.iter().map(|t| count_tokens(t)).sum() + 1
 }
 
 fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Vec<TclToken<'a>>) {
-    let token_type: TokenType = FromPrimitive::from_uint(tcl_token._type as uint).unwrap();
-    let num_subtokens = tcl_token.numComponents as uint;
+    let token_type: TokenType = FromPrimitive::from_uint(tcl_token._type as usize).unwrap();
+    let num_subtokens = tcl_token.numComponents as usize;
 
     let subtokens = match token_type {
         Word | ExpandWord => {
@@ -348,7 +348,7 @@ fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Ve
                 let tok = acc.pop().unwrap();
                 count += match tok.ttype {
                     Text | Bs | Command | Variable => count_tokens(&tok),
-                    _ => panic!("Invalid token type {}", tok.ttype),
+                    _ => panic!("Invalid token type {:?}", tok.ttype),
                 };
                 subtokens.push(tok);
             }
@@ -374,7 +374,7 @@ fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Ve
                     Word | Text | Bs | Command | Variable | SubExpr => {
                         count += count_tokens(&tok)
                     },
-                    _ => panic!("Invalid token {}", tok.ttype),
+                    _ => panic!("Invalid token {:?}", tok.ttype),
                 }
                 subtokens.push(tok);
             }

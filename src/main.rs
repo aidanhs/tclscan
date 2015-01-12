@@ -13,8 +13,8 @@ pub fn main() {
             tclscan::scan_file(arg.as_slice());
         },
         [_, ref op, ref arg] if *op == "str" => {
-            println!("{}", rstcl::parse_command(arg.as_slice()));
+            println!("{:?}", rstcl::parse_command(arg.as_slice()));
         },
-        x => println!("{}, {}", HELP, x)
+        _ => println!("{}", HELP)
     };
 }
