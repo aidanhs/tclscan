@@ -2,7 +2,7 @@
 
 extern crate libc;
 
-use std::io::File;
+use std::old_io::File;
 use std::iter;
 use std::fmt;
 use self::CheckResult::*; // TODO: why does swapping this line with one below break?
