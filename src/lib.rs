@@ -121,6 +121,7 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// use tclscan::CheckResult::{Danger,Warn};
 /// assert!(c(&p("puts x").0.tokens) == vec![]);
 /// assert!(c(&p("puts [x]").0.tokens) == vec![]);
+/// assert!(c(&p("puts [x\n ]").0.tokens) == vec![]);
 /// assert!(c(&p("puts [eval $x]").0.tokens) == vec![Danger("Dangerous unquoted block")]);
 /// assert!(c(&p("expr {[blah]}").0.tokens) == vec![]);
 /// assert!(c(&p("expr \"[blah]\"").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
