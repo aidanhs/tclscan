@@ -1,4 +1,11 @@
 #![feature(slicing_syntax)]
+#![feature(core)]
+#![feature(collections)]
+#![feature(io)]
+#![feature(libc)]
+#![feature(std_misc)]
+#![feature(path)]
+#![feature(std_misc)]
 
 extern crate libc;
 
@@ -24,13 +31,12 @@ mod tcl;
 //    bindgen!("./mytcl.h", match="tcl.h", link="tclstub")
 //}
 
-// TODO: remove show
-#[derive(PartialEq, Show)]
+#[derive(PartialEq)]
 pub enum CheckResult {
     Warn(&'static str),
     Danger(&'static str),
 }
-impl fmt::String for CheckResult {
+impl fmt::Display for CheckResult {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         return match self {
             &Warn(s) => write!(f, "WARN: {}", s),
@@ -50,7 +56,7 @@ enum Code {
 pub fn scan_file(path: &str) {
     let mut file = File::open(&Path::new(path));
     match file.read_to_string() {
-        Ok(v) => scan_script(v.as_slice()),
+        Ok(v) => scan_script(&v[]),
         Err(e) => println!("WARN: Couldn't read {}: {}", path, e),
     }
 }
@@ -81,7 +87,7 @@ fn is_safe_var(token: &rstcl::TclToken) -> bool {
 fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
     let parse = rstcl::parse_command_token(token);
     let token_strs: Vec<&str> = parse.tokens.iter().map(|e| e.val).collect();
-    return match token_strs.as_slice() {
+    return match &token_strs[] {
         ["info", "exists", ..] |
         ["catch", ..] => true,
         _ => false,
@@ -148,7 +154,7 @@ pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
             let mut param_types = vec![Code::Block];
             if tokens.len() == 3 || tokens.len() == 4 {
                 let new_params: Vec<Code> = iter::repeat(Code::Literal).take(tokens.len()-2).collect();
-                param_types.push_all(new_params.as_slice());
+                param_types.push_all(&new_params[]);
             }
             param_types
         }
@@ -167,11 +173,11 @@ pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
             let mut param_types = vec![Code::Expr, Code::Block];
             let mut i = 3;
             while i < tokens.len() {
-                param_types.push_all(match tokens[i].val {
+                param_types.push_all(&match tokens[i].val {
                     "elseif" => vec![Code::Literal, Code::Expr, Code::Block],
                     "else" => vec![Code::Literal, Code::Block],
                     _ => { break; },
-                }.as_slice());
+                }[]);
                 i = param_types.len() + 1;
             }
             param_types
@@ -226,7 +232,7 @@ fn check_expr<'a>(token: &rstcl::TclToken) -> Vec<CheckResult> {
     // Technically this is the 'scan_expr' function
     // Expr isn't inherently dangerous, let's check functions inside the expr
     assert!(token.val.starts_with("{") && token.val.ends_with("}"));
-    let expr = token.val.slice(1, token.val.len()-1);
+    let expr = &token.val[1..token.val.len()-1];
     let (parse, remaining) = rstcl::parse_expr(expr);
     assert!(parse.tokens.len() == 1 && remaining == "");
     for tok in parse.tokens[0].iter().filter(|tok| tok.ttype == TokenType::Command) {
@@ -245,7 +251,7 @@ pub fn scan_script<'a>(string: &'a str) {
         if parse.tokens.len() == 0 {
             continue;
         }
-        match check_command(&parse.tokens).as_slice() {
+        match &check_command(&parse.tokens)[] {
             [] => (),
             r => {
                 println!("COMMAND: {}", parse.command.unwrap().trim_right());

@@ -14,7 +14,7 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
     return I.unwrap();
 }
 
-#[derive(Copy, FromPrimitive, Show, PartialEq)]
+#[derive(Copy, Debug, FromPrimitive, PartialEq)]
 pub enum TokenType {
     Word = 1, // TCL_TOKEN_WORD
     SimpleWord = 2, // TCL_TOKEN_SIMPLE_WORD
@@ -27,13 +27,13 @@ pub enum TokenType {
     ExpandWord = 256, // TCL_TOKEN_EXPAND_WORD
 }
 
-#[derive(Show, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TclParse<'a> {
     pub comment: Option<&'a str>,
     pub command: Option<&'a str>,
     pub tokens: Vec<TclToken<'a>>,
 }
-#[derive(Show, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct TclToken<'a> {
     pub ttype: TokenType,
     pub val: &'a str,
@@ -146,7 +146,7 @@ pub fn parse_command<'a>(script: &'a str) -> (TclParse<'a>, &'a str) {
 pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {
     assert!(token.ttype == TokenType::Command);
     assert!(token.val.starts_with("[") && token.val.ends_with("]"));
-    let cmd = token.val.slice(1, token.val.len()-1);
+    let cmd = &token.val[1..token.val.len()-1];
     let (parse, remaining) = parse_command(cmd);
     assert!(remaining == "");
     return parse;

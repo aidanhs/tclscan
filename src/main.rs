@@ -1,4 +1,5 @@
 #![feature(plugin)]
+#![feature(io)]
 
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate docopt;
@@ -24,9 +25,9 @@ pub fn main() {
     };
     match (args.cmd_check, args.cmd_parsestr, take_stdin) {
         (true, false, false) =>
-            tclscan::scan_file(args.arg_path.as_slice()),
+            tclscan::scan_file(&args.arg_path[]),
         (true, false, true) =>
-            tclscan::scan_script(stdin.as_slice()),
+            tclscan::scan_script(&stdin[]),
         (false, true, false) =>
             println!("{:?}", rstcl::parse_command(args.arg_script_str.as_slice())),
         (false, true, true) =>
