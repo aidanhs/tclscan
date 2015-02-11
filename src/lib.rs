@@ -130,7 +130,7 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// assert!(c(&p("if [info exists abc] {}").0.tokens) == vec![Warn("Unquoted expr")]);
 /// assert!(c(&p("if [abc] {}").0.tokens) == vec![Danger("Dangerous unquoted expr")]);
 /// assert!(c(&p("a${x} blah").0.tokens) == vec![Warn("Non-literal command, cannot scan")]);
-/// assert!(c(&p("set a []").0.tokens) == vec![Warn("Non-literal command, cannot scan")]);
+/// assert!(c(&p("set a []").0.tokens) == vec![]);
 /// ```
 pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
     let mut results = vec![];
@@ -141,8 +141,12 @@ pub fn check_command(tokens: &Vec<rstcl::TclToken>) -> Vec<CheckResult> {
             results.extend(check_command(&parse.tokens).into_iter());
         }
     }
+    // The empty command (e.g. `[]`)
+    if tokens.len() == 0 {
+        return results;
+    }
     // Now check if the command name itself isn't a literal
-    if tokens.len() == 0 || check_literal(&tokens[0]).into_iter().len() > 0 {
+    if check_literal(&tokens[0]).into_iter().len() > 0 {
         results.push(Warn("Non-literal command, cannot scan"));
         return results;
     }
