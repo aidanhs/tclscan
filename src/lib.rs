@@ -252,10 +252,12 @@ pub fn scan_script<'a>(string: &'a str) {
     let mut script: &'a str = string;
     while script.len() > 0 {
         let (parse, remaining) = rstcl::parse_command(script);
-        script = remaining;
+        // Blank lines right at end of script (or empty script)
         if parse.tokens.len() == 0 {
-            continue;
+            assert!(remaining.len() == 0);
+            break;
         }
+        script = remaining;
         match &check_command(&parse.tokens)[] {
             [] => (),
             r => {
