@@ -142,7 +142,8 @@ impl<'b, 'c: 'b> Iterator for TclTokenIter<'b, 'c> {
 pub fn parse_command<'a>(script: &'a str) -> (TclParse<'a>, &'a str) {
     return parse(script, true, false);
 }
-// Parses a TokenType::Command token contained in '[]'
+/// Takes: a TokenType::Command token contained in '[]'
+/// Returns: a parse structure
 pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {
     assert!(token.ttype == TokenType::Command);
     assert!(token.val.starts_with("[") && token.val.ends_with("]"));
