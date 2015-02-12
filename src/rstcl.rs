@@ -78,8 +78,8 @@ impl<'b, 'c: 'b> Iterator for TclTokenIter<'b, 'c> {
     }
 }
 
-/// Takes: a script
-/// Returns: a parse structure and the remaining script.
+/// Takes: a string, which should be a tcl script
+/// Returns: a parse structure and the remaining string.
 ///
 /// ```
 /// use tclscan::rstcl::{TclParse,TclToken};
@@ -139,8 +139,8 @@ impl<'b, 'c: 'b> Iterator for TclTokenIter<'b, 'c> {
 ///     ]
 /// }, ""));
 /// ```
-pub fn parse_command<'a>(script: &'a str) -> (TclParse<'a>, &'a str) {
-    return parse(script, true, false);
+pub fn parse_command<'a>(string: &'a str) -> (TclParse<'a>, &'a str) {
+    return parse(string, true, false);
 }
 /// Takes: a TokenType::Command token contained in '[]'
 /// Returns: a parse structure
@@ -152,7 +152,7 @@ pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {
     assert!(remaining.trim() == "");
     return parse;
 }
-/// Takes: an expr
+/// Takes: a string, which should be a tcl expr
 /// Returns: a parse structure and the remaining script.
 ///
 /// ```
@@ -232,32 +232,32 @@ pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {
 ///     ]
 /// }, ""));
 /// ```
-pub fn parse_expr<'a>(script: &'a str) -> (TclParse<'a>, &'a str) {
-    return parse(script, false, true);
+pub fn parse_expr<'a>(string: &'a str) -> (TclParse<'a>, &'a str) {
+    return parse(string, false, true);
 }
 
-fn parse<'a>(script: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>, &'a str) {
+fn parse<'a>(string: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>, &'a str) {
     unsafe {
         let mut parse: tcl::Tcl_Parse = uninitialized();
         let parse_ptr: *mut tcl::Tcl_Parse = &mut parse;
 
         // https://github.com/rust-lang/rust/issues/16035
-        let script_cstr = CString::from_slice(script.as_bytes());
-        let script_ptr = script_cstr.as_ptr();
-        let script_start = script_ptr as usize;
+        let string_cstr = CString::from_slice(string.as_bytes());
+        let string_ptr = string_cstr.as_ptr();
+        let string_start = string_ptr as usize;
 
         let parsed = match (is_command, is_expr) {
             // interp, start, numBytes, nested, parsePtr
-            (true, false) => tcl::Tcl_ParseCommand(tcl_interp(), script_ptr, -1, 0, parse_ptr),
+            (true, false) => tcl::Tcl_ParseCommand(tcl_interp(), string_ptr, -1, 0, parse_ptr),
             // interp, start, numBytes, parsePtr
-            (false, true) => tcl::Tcl_ParseExpr(tcl_interp(), script_ptr, -1, parse_ptr),
+            (false, true) => tcl::Tcl_ParseExpr(tcl_interp(), string_ptr, -1, parse_ptr),
             parse_args => panic!("Don't know how to parse {:?}", parse_args),
         };
         if parsed != 0 {
-            println!("WARN: couldn't parse {}", script);
+            println!("WARN: couldn't parse {}", string);
             return (TclParse { comment: Some(""), command: Some(""), tokens: vec![] }, "");
         }
-        let tokens = make_tokens(script, script_start, &parse);
+        let tokens = make_tokens(string, string_start, &parse);
 
         let (tclparse, remaining) = match (is_command, is_expr) {
             (true, false) => {
@@ -266,14 +266,14 @@ fn parse<'a>(script: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>,
                 let comment = Some(match parse.commentSize as usize {
                     0 => "",
                     l => {
-                        let offset = parse.commentStart as usize - script_start;
-                        &script[offset..offset+l]
+                        let offset = parse.commentStart as usize - string_start;
+                        &string[offset..offset+l]
                     },
                 });
                 let command_len = parse.commandSize as usize;
-                let command_off = parse.commandStart as usize - script_start;
-                let command = Some(&script[command_off..command_off+command_len]);
-                let remaining = &script[command_off+command_len..];
+                let command_off = parse.commandStart as usize - string_start;
+                let command = Some(&string[command_off..command_off+command_len]);
+                let remaining = &string[command_off+command_len..];
                 (TclParse { comment: comment, command: command, tokens: tokens }, remaining)
             },
             (false, true) => {
@@ -287,14 +287,14 @@ fn parse<'a>(script: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>,
     }
 }
 
-unsafe fn make_tokens<'a>(script: &'a str, script_start: usize, tcl_parse: &tcl::Tcl_Parse) -> Vec<TclToken<'a>> {
+unsafe fn make_tokens<'a>(string: &'a str, string_start: usize, tcl_parse: &tcl::Tcl_Parse) -> Vec<TclToken<'a>> {
     let mut acc = vec![];
     for i in range(0, tcl_parse.numTokens as isize).rev() {
         let tcl_token = *(tcl_parse.tokenPtr).offset(i);
         assert!(tcl_token.start as usize > 0);
-        let offset = tcl_token.start as usize - script_start;
+        let offset = tcl_token.start as usize - string_start;
         let token_size = tcl_token.size as usize;
-        let tokenval = &script[offset..offset+token_size];
+        let tokenval = &string[offset..offset+token_size];
         make_tcltoken(&tcl_token, tokenval, &mut acc);
     }
     acc.reverse();
