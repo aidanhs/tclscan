@@ -112,11 +112,11 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// assert!(c(&p("puts [x]").0.tokens) == vec![]);
 /// assert!(c(&p("puts [x\n ]").0.tokens) == vec![]);
 /// assert!(c(&p("puts [x;y]").0.tokens) == vec![]);
-/// //assert!(c(&p("puts [eval $x]").0.tokens) == vec![Danger("Dangerous unquoted block", "$x")]);
+/// assert!(c(&p("puts [eval $x]").0.tokens) == vec![Danger("Dangerous unquoted block", "$x")]);
 /// assert!(c(&p("expr {[blah]}").0.tokens) == vec![]);
 /// assert!(c(&p("expr \"[blah]\"").0.tokens) == vec![Danger("Dangerous unquoted expr", "\"[blah]\"")]);
 /// assert!(c(&p("expr {\\\n0}").0.tokens) == vec![]);
-/// //assert!(c(&p("expr {[expr \"[blah]\"]}").0.tokens) == vec![Danger("Dangerous unquoted expr", "\"[blah]\"")]);
+/// assert!(c(&p("expr {[expr \"[blah]\"]}").0.tokens) == vec![Danger("Dangerous unquoted expr", "\"[blah]\"")]);
 /// assert!(c(&p("if [info exists abc] {}").0.tokens) == vec![Warn("Unquoted expr", "[info exists abc]")]);
 /// assert!(c(&p("if [abc] {}").0.tokens) == vec![Danger("Dangerous unquoted expr", "[abc]")]);
 /// assert!(c(&p("a${x} blah").0.tokens) == vec![Warn("Non-literal command, cannot scan", "a${x}")]);
