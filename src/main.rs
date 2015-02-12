@@ -39,7 +39,7 @@ pub fn main() {
     let script = &script_in[];
     match (args.cmd_check, args.cmd_parsestr) {
         (true, false) => {
-            let results = tclscan::scan_script(script);
+            let results = tclscan::scan_script(script, script);
             if results.len() > 0 {
                 for check_result in results.iter() {
                     println!("{}", check_result);

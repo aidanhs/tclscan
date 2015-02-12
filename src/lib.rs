@@ -29,14 +29,15 @@ mod tcl;
 
 #[derive(PartialEq)]
 pub enum CheckResult<'a> {
-    Warn(&'static str, &'a str),
-    Danger(&'static str, &'a str),
+    // context, message, problem code
+    Warn(&'a str, &'static str, &'a str),
+    Danger(&'a str, &'static str, &'a str),
 }
 impl<'b> fmt::Display for CheckResult<'b> {
     fn fmt<'a>(&'a self, f: &mut fmt::Formatter) -> fmt::Result {
         return match self {
-            &Warn(msg, line) => write!(f, "WARN: {} for\n{}", msg, line),
-            &Danger(msg, line) => write!(f, "DANGER: {} for\n{}", msg, line),
+            &Warn(ctx, msg, line) => write!(f, "WARN: {} at `{}` in `{}`", msg, line, ctx),
+            &Danger(ctx, msg, line) => write!(f, "DANGER: {} at `{}` in `{}`", msg, line, ctx),
         };
     }
 }
@@ -49,15 +50,15 @@ enum Code {
     Normal,
 }
 
-fn check_literal<'a, 'b>(token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
+fn check_literal<'a, 'b>(ctx: &'a str, token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
     let token_str = token.val;
     assert!(token_str.len() > 0);
     return if token_str.char_at(0) == '{' {
         vec![]
     } else if token_str.contains_char('$') {
-        vec![Danger("Expected literal, found $", token_str)]
+        vec![Danger(ctx, "Expected literal, found $", token_str)]
     } else if token_str.contains_char('[') {
-        vec![Danger("Expected literal, found [", token_str)]
+        vec![Danger(ctx, "Expected literal, found [", token_str)]
     } else {
         vec![]
     }
@@ -111,30 +112,34 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// Checks if a parsed command is insecure
 ///
 /// ```
-/// use tclscan::rstcl::parse_command as p;
-/// use tclscan::check_command as c;
+/// use tclscan::rstcl::parse_command;
+/// use tclscan::check_command;
+/// use tclscan::CheckResult;
 /// use tclscan::CheckResult::{Danger,Warn};
-/// assert!(c(&p("puts x").0.tokens) == vec![]);
-/// assert!(c(&p("puts [x]").0.tokens) == vec![]);
-/// assert!(c(&p("puts [x\n ]").0.tokens) == vec![]);
-/// assert!(c(&p("puts [x;y]").0.tokens) == vec![]);
-/// assert!(c(&p("puts [x;eval $y]").0.tokens) == vec![Danger("Dangerous unquoted block", "$y")]);
-/// assert!(c(&p("puts [eval $x]").0.tokens) == vec![Danger("Dangerous unquoted block", "$x")]);
-/// assert!(c(&p("expr {[blah]}").0.tokens) == vec![]);
-/// assert!(c(&p("expr \"[blah]\"").0.tokens) == vec![Danger("Dangerous unquoted expr", "\"[blah]\"")]);
-/// assert!(c(&p("expr {\\\n0}").0.tokens) == vec![]);
-/// assert!(c(&p("expr {[expr \"[blah]\"]}").0.tokens) == vec![Danger("Dangerous unquoted expr", "\"[blah]\"")]);
-/// assert!(c(&p("if [info exists abc] {}").0.tokens) == vec![Warn("Unquoted expr", "[info exists abc]")]);
-/// assert!(c(&p("if [abc] {}").0.tokens) == vec![Danger("Dangerous unquoted expr", "[abc]")]);
-/// assert!(c(&p("a${x} blah").0.tokens) == vec![Warn("Non-literal command, cannot scan", "a${x}")]);
-/// assert!(c(&p("set a []").0.tokens) == vec![]);
+/// fn c<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
+///     return check_command(string, &parse_command(string).0.tokens);
+/// }
+/// assert!(c(("puts x")) == vec![]);
+/// assert!(c(("puts [x]")) == vec![]);
+/// assert!(c(("puts [x\n ]")) == vec![]);
+/// assert!(c(("puts [x;y]")) == vec![]);
+/// assert!(c(("puts [x;eval $y]")) == vec![Danger("eval $y", "Dangerous unquoted block", "$y")]);
+/// assert!(c(("puts [eval $x]")) == vec![Danger("eval $x", "Dangerous unquoted block", "$x")]);
+/// assert!(c(("expr {[blah]}")) == vec![]);
+/// assert!(c(("expr \"[blah]\"")) == vec![Danger("expr \"[blah]\"", "Dangerous unquoted expr", "\"[blah]\"")]);
+/// assert!(c(("expr {\\\n0}")) == vec![]);
+/// assert!(c(("expr {[expr \"[blah]\"]}")) == vec![Danger("expr \"[blah]\"", "Dangerous unquoted expr", "\"[blah]\"")]);
+/// assert!(c(("if [info exists abc] {}")) == vec![Warn("if [info exists abc] {}", "Unquoted expr", "[info exists abc]")]);
+/// assert!(c(("if [abc] {}")) == vec![Danger("if [abc] {}", "Dangerous unquoted expr", "[abc]")]);
+/// assert!(c(("a${x} blah")) == vec![Warn("a${x} blah", "Non-literal command, cannot scan", "a${x}")]);
+/// assert!(c(("set a []")) == vec![]);
 /// ```
-pub fn check_command<'a, 'b>(tokens: &'b Vec<rstcl::TclToken<'a>>) -> Vec<CheckResult<'a>> {
+pub fn check_command<'a, 'b>(ctx: &'a str, tokens: &'b Vec<rstcl::TclToken<'a>>) -> Vec<CheckResult<'a>> {
     let mut results = vec![];
     // First check all subcommands which will be substituted
     for tok in tokens.iter() {
         for subtok in tok.iter().filter(|tok| tok.ttype == TokenType::Command) {
-            results.extend(scan_command(subtok.val).into_iter());
+            results.extend(scan_command(ctx, subtok.val).into_iter());
         }
     }
     // The empty command (e.g. `[]`)
@@ -142,8 +147,8 @@ pub fn check_command<'a, 'b>(tokens: &'b Vec<rstcl::TclToken<'a>>) -> Vec<CheckR
         return results;
     }
     // Now check if the command name itself isn't a literal
-    if check_literal(&tokens[0]).into_iter().len() > 0 {
-        results.push(Warn("Non-literal command, cannot scan", tokens[0].val));
+    if check_literal(ctx, &tokens[0]).into_iter().len() > 0 {
+        results.push(Warn(ctx, "Non-literal command, cannot scan", tokens[0].val));
         return results;
     }
     // Now check the command-specific interpretation of arguments etc
@@ -186,14 +191,14 @@ pub fn check_command<'a, 'b>(tokens: &'b Vec<rstcl::TclToken<'a>>) -> Vec<CheckR
         _ => iter::repeat(Code::Normal).take(tokens.len()-1).collect(),
     };
     if param_types.len() != tokens.len() - 1 {
-        results.push(Warn("badly formed command", tokens[0].val));
+        results.push(Warn(ctx, "badly formed command", tokens[0].val));
         return results;
     }
     for (param_type, param) in param_types.iter().zip(tokens[1..].iter()) {
         let check_results: Vec<CheckResult<'a>> = match *param_type {
-            Code::Block => check_block(param),
-            Code::Expr => check_expr(param),
-            Code::Literal => check_literal(param),
+            Code::Block => check_block(ctx, param),
+            Code::Expr => check_expr(ctx, param),
+            Code::Literal => check_literal(ctx, param),
             Code::Normal => vec![],
         };
         results.extend(check_results.into_iter());
@@ -202,27 +207,27 @@ pub fn check_command<'a, 'b>(tokens: &'b Vec<rstcl::TclToken<'a>>) -> Vec<CheckR
 }
 
 /// Scans a block (i.e. should be quoted) for danger
-fn check_block<'a, 'b>(token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
+fn check_block<'a, 'b>(ctx: &'a str, token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
     let block_str = token.val;
     if !(block_str.starts_with("{") && block_str.ends_with("}")) {
         return vec!(match is_safe_val(token) {
-            true => Warn("Unquoted block", block_str),
-            false => Danger("Dangerous unquoted block", block_str),
+            true => Warn(ctx, "Unquoted block", block_str),
+            false => Danger(ctx, "Dangerous unquoted block", block_str),
         });
     }
     // Block isn't inherently dangerous, let's check functions inside the block
     let script_str = &block_str[1..block_str.len()-1];
-    return scan_script(script_str);
+    return scan_script(ctx, script_str);
 }
 
 /// Scans an expr (i.e. should be quoted) for danger
-fn check_expr<'a, 'b>(token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
+fn check_expr<'a, 'b>(ctx: &'a str, token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
     let mut results = vec![];
     let expr_str = token.val;
     if !(expr_str.starts_with("{") && expr_str.ends_with("}")) {
         results.push(match is_safe_val(token) {
-            true => Warn("Unquoted expr", expr_str),
-            false => Danger("Dangerous unquoted expr", expr_str),
+            true => Warn(ctx, "Unquoted expr", expr_str),
+            false => Danger(ctx, "Dangerous unquoted expr", expr_str),
         });
         return results;
     };
@@ -233,27 +238,27 @@ fn check_expr<'a, 'b>(token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
     let (parse, remaining) = rstcl::parse_expr(expr);
     assert!(parse.tokens.len() == 1 && remaining == "");
     for tok in parse.tokens[0].iter().filter(|tok| tok.ttype == TokenType::Command) {
-        results.extend(scan_command(tok.val).into_iter());
+        results.extend(scan_command(ctx, tok.val).into_iter());
     }
     return results;
 }
 
 /// Scans a TokenType::Command token (contained in '[]') for danger
-pub fn scan_command<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
+pub fn scan_command<'a>(ctx: &'a str, string: &'a str) -> Vec<CheckResult<'a>> {
     assert!(string.starts_with("[") && string.ends_with("]"));
     let script = &string[1..string.len()-1];
-    return scan_script(script);
+    return scan_script(ctx, script);
 }
 
 /// Scans a sequence of commands for danger
-pub fn scan_script<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
+pub fn scan_script<'a>(ctx: &'a str, string: &'a str) -> Vec<CheckResult<'a>> {
     let mut all_results: Vec<CheckResult<'a>> = vec![];
     for parse in rstcl::parse_script(string) {
         // Skip empty parse at end of script
         if parse.tokens.len() == 0 {
             break;
         }
-        let results = check_command(&parse.tokens);
+        let results = check_command(&parse.command.unwrap(), &parse.tokens);
         all_results.extend(results.into_iter());
     }
     return all_results;
