@@ -139,7 +139,7 @@ pub fn check_command<'a, 'b>(ctx: &'a str, tokens: &'b Vec<rstcl::TclToken<'a>>)
     // First check all subcommands which will be substituted
     for tok in tokens.iter() {
         for subtok in tok.iter().filter(|tok| tok.ttype == TokenType::Command) {
-            results.extend(scan_command(ctx, subtok.val).into_iter());
+            results.extend(scan_command(subtok.val).into_iter());
         }
     }
     // The empty command (e.g. `[]`)
@@ -217,7 +217,7 @@ fn check_block<'a, 'b>(ctx: &'a str, token: &'b rstcl::TclToken<'a>) -> Vec<Chec
     }
     // Block isn't inherently dangerous, let's check functions inside the block
     let script_str = &block_str[1..block_str.len()-1];
-    return scan_script(ctx, script_str);
+    return scan_script(script_str);
 }
 
 /// Scans an expr (i.e. should be quoted) for danger
@@ -238,20 +238,20 @@ fn check_expr<'a, 'b>(ctx: &'a str, token: &'b rstcl::TclToken<'a>) -> Vec<Check
     let (parse, remaining) = rstcl::parse_expr(expr);
     assert!(parse.tokens.len() == 1 && remaining == "");
     for tok in parse.tokens[0].iter().filter(|tok| tok.ttype == TokenType::Command) {
-        results.extend(scan_command(ctx, tok.val).into_iter());
+        results.extend(scan_command(tok.val).into_iter());
     }
     return results;
 }
 
 /// Scans a TokenType::Command token (contained in '[]') for danger
-pub fn scan_command<'a>(ctx: &'a str, string: &'a str) -> Vec<CheckResult<'a>> {
+pub fn scan_command<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
     assert!(string.starts_with("[") && string.ends_with("]"));
     let script = &string[1..string.len()-1];
-    return scan_script(ctx, script);
+    return scan_script(script);
 }
 
 /// Scans a sequence of commands for danger
-pub fn scan_script<'a>(ctx: &'a str, string: &'a str) -> Vec<CheckResult<'a>> {
+pub fn scan_script<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
     let mut all_results: Vec<CheckResult<'a>> = vec![];
     for parse in rstcl::parse_script(string) {
         // Skip empty parse at end of script
