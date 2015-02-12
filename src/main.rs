@@ -1,5 +1,7 @@
 #![feature(plugin)]
 #![feature(io)]
+#![feature(path)]
+#![feature(core)]
 
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate docopt;
@@ -7,7 +9,6 @@ extern crate docopt;
 extern crate tclscan;
 
 use std::old_io;
-use std::string;
 use docopt::Docopt;
 use tclscan::rstcl;
 
@@ -19,20 +20,40 @@ Usage: tclscan check ( - | <path> )
 pub fn main() {
     let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
     let take_stdin = args.cmd__;
-    let stdin = match take_stdin {
-        true => old_io::stdin().read_to_string().unwrap(),
-        false => string::String::new(),
+    let script_in = match (args.cmd_check, args.cmd_parsestr, take_stdin) {
+        (true, false, false) => {
+            let path = &args.arg_path[];
+            let mut file = old_io::File::open(&Path::new(path));
+            let read_result = file.read_to_string();
+            if read_result.is_err() {
+                println!("WARN: Couldn't read {}: {}", path, read_result.unwrap_err());
+                return;
+            }
+            read_result.unwrap()
+        },
+        (true, false, true) |
+        (false, true, true) => old_io::stdin().read_to_string().unwrap(),
+        (false, true, false) => args.arg_script_str,
+        _ => panic!("Internal error: could not load script"),
     };
-    match (args.cmd_check, args.cmd_parsestr, take_stdin) {
-        (true, false, false) =>
-            tclscan::scan_file(&args.arg_path[]),
-        (true, false, true) =>
-            tclscan::scan_script(&stdin[]),
-        (false, true, false) =>
-            println!("{:?}", rstcl::parse_command(args.arg_script_str.as_slice())),
-        (false, true, true) =>
-            println!("{:?}", rstcl::parse_command(stdin.as_slice())),
+    let script = &script_in[];
+    match (args.cmd_check, args.cmd_parsestr) {
+        (true, false) => {
+            let results = tclscan::scan_script(script);
+            match &results[] {
+                [] => (),
+                r => {
+                    //println!("COMMAND: {}", parse.command.unwrap().trim_right());
+                    for check_result in r.iter() {
+                        println!("{}", check_result);
+                    }
+                    println!("");
+                },
+            };
+        },
+        (false, true) =>
+            println!("{:?}", rstcl::parse_command(script)),
         _ =>
-            panic!("Internal error, cannot handle args"),
+            panic!("Internal error: invalid operation"),
     }
 }
