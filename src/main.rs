@@ -48,7 +48,7 @@ pub fn main() {
             };
         },
         (false, true) =>
-            println!("{:?}", rstcl::parse_command(script)),
+            println!("{:?}", rstcl::parse_script(script)),
         _ =>
             panic!("Internal error: invalid operation"),
     }
