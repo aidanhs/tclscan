@@ -126,7 +126,7 @@ pub fn check_command<'a, 'b>(tokens: &'b Vec<rstcl::TclToken<'a>>) -> Vec<CheckR
     // First check all subcommands which will be substituted
     for tok in tokens.iter() {
         for subtok in tok.iter().filter(|tok| tok.ttype == TokenType::Command) {
-            results.extend(scan_command_token(subtok).into_iter());
+            results.extend(scan_command(subtok.val).into_iter());
         }
     }
     // The empty command (e.g. `[]`)
@@ -225,17 +225,16 @@ fn check_expr<'a, 'b>(token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
     let (parse, remaining) = rstcl::parse_expr(expr);
     assert!(parse.tokens.len() == 1 && remaining == "");
     for tok in parse.tokens[0].iter().filter(|tok| tok.ttype == TokenType::Command) {
-        results.extend(scan_command_token(tok).into_iter());
+        results.extend(scan_command(tok.val).into_iter());
     }
     return results;
 }
 
 /// Scans a TokenType::Command token (contained in '[]') for danger
-pub fn scan_command_token<'a, 'b>(token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
-    assert!(token.ttype == TokenType::Command);
-    assert!(token.val.starts_with("[") && token.val.ends_with("]"));
-    let cmd = &token.val[1..token.val.len()-1];
-    return scan_script(cmd);
+pub fn scan_command<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
+    assert!(string.starts_with("[") && string.ends_with("]"));
+    let script = &string[1..string.len()-1];
+    return scan_script(script);
 }
 
 /// Scans a sequence of commands for danger
