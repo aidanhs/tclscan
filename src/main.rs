@@ -11,9 +11,10 @@ extern crate tclscan;
 use std::old_io;
 use docopt::Docopt;
 use tclscan::rstcl;
+use tclscan::CheckResult;
 
 docopt!(Args derive Show, "
-Usage: tclscan check ( - | <path> )
+Usage: tclscan check [--no-warn] ( - | <path> )
        tclscan parsestr ( - | <script-str> )
 ");
 
@@ -39,7 +40,12 @@ pub fn main() {
     let script = &script_in[];
     match (args.cmd_check, args.cmd_parsestr) {
         (true, false) => {
-            let results = tclscan::scan_script(script);
+            let mut results = tclscan::scan_script(script);
+            if args.flag_no_warn {
+                results = results.into_iter().filter(|r|
+                    match r { &CheckResult::Warn(_, _, _) => false,  _ => true }
+                ).collect();
+            }
             if results.len() > 0 {
                 for check_result in results.iter() {
                     println!("{}", check_result);
