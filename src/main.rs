@@ -40,15 +40,11 @@ pub fn main() {
     match (args.cmd_check, args.cmd_parsestr) {
         (true, false) => {
             let results = tclscan::scan_script(script);
-            match &results[] {
-                [] => (),
-                r => {
-                    //println!("COMMAND: {}", parse.command.unwrap().trim_right());
-                    for check_result in r.iter() {
-                        println!("{}", check_result);
-                    }
-                    println!("");
-                },
+            if results.len() > 0 {
+                for check_result in results.iter() {
+                    println!("{}", check_result);
+                }
+                println!("");
             };
         },
         (false, true) =>
