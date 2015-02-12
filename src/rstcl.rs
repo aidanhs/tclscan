@@ -142,6 +142,18 @@ impl<'b, 'c: 'b> Iterator for TclTokenIter<'b, 'c> {
 pub fn parse_command<'a>(string: &'a str) -> (TclParse<'a>, &'a str) {
     return parse(string, true, false);
 }
+pub fn parse_script<'a>(string: &'a str) -> Vec<TclParse<'a>> {
+    let mut script = string;
+    let mut commands = vec![];
+    while script.len() > 0 {
+        let (parse, remaining) = parse_command(script);
+        // Make sure commandless parse only happens at the end
+        assert!(parse.tokens.len() > 0 || remaining.len() == 0);
+        script = remaining;
+        commands.push(parse);
+    }
+    return commands;
+}
 /// Takes: a TokenType::Command token contained in '[]'
 /// Returns: a parse structure
 pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {

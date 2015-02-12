@@ -240,16 +240,12 @@ pub fn scan_command_token<'a, 'b>(token: &'b rstcl::TclToken<'a>) -> Vec<CheckRe
 
 /// Scans a sequence of commands for danger
 pub fn scan_script<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
-    let mut script: &'a str = string;
     let mut all_results: Vec<CheckResult<'a>> = vec![];
-    while script.len() > 0 {
-        let (parse, remaining) = rstcl::parse_command(script);
-        // Blank lines right at end of script (or empty script)
+    for parse in rstcl::parse_script(string) {
+        // Skip empty parse at end of script
         if parse.tokens.len() == 0 {
-            assert!(remaining.len() == 0);
             break;
         }
-        script = remaining;
         let results = check_command(&parse.tokens);
         all_results.extend(results.into_iter());
     }
