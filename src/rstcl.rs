@@ -154,16 +154,6 @@ pub fn parse_script<'a>(string: &'a str) -> Vec<TclParse<'a>> {
     }
     return commands;
 }
-/// Takes: a TokenType::Command token contained in '[]'
-/// Returns: a parse structure
-pub fn parse_command_token<'a>(token: &'a TclToken) -> TclParse<'a> {
-    assert!(token.ttype == TokenType::Command);
-    assert!(token.val.starts_with("[") && token.val.ends_with("]"));
-    let cmd = &token.val[1..token.val.len()-1];
-    let (parse, remaining) = parse_command(cmd);
-    assert!(remaining.trim() == "");
-    return parse;
-}
 /// Takes: a string, which should be a tcl expr
 /// Returns: a parse structure and the remaining script.
 ///

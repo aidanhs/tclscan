@@ -73,8 +73,15 @@ fn is_safe_var(token: &rstcl::TclToken) -> bool {
 // Does the return value of this function only contain safe characters?
 // Only used by is_safe_val.
 fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
-    let parse = rstcl::parse_command_token(token);
-    let token_strs: Vec<&str> = parse.tokens.iter().map(|e| e.val).collect();
+    let string = token.val;
+    assert!(string.starts_with("[") && string.ends_with("]"));
+    let script = &string[1..string.len()-1];
+    let parses = rstcl::parse_script(script);
+    // Empty script
+    if parses.len() == 0 {
+        return true;
+    }
+    let token_strs: Vec<&str> = parses[0].tokens.iter().map(|e| e.val).collect();
     return match &token_strs[] {
         ["info", "exists", ..] |
         ["catch", ..] => true,
@@ -111,6 +118,7 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// assert!(c(&p("puts [x]").0.tokens) == vec![]);
 /// assert!(c(&p("puts [x\n ]").0.tokens) == vec![]);
 /// assert!(c(&p("puts [x;y]").0.tokens) == vec![]);
+/// assert!(c(&p("puts [x;eval $y]").0.tokens) == vec![Danger("Dangerous unquoted block", "$y")]);
 /// assert!(c(&p("puts [eval $x]").0.tokens) == vec![Danger("Dangerous unquoted block", "$x")]);
 /// assert!(c(&p("expr {[blah]}").0.tokens) == vec![]);
 /// assert!(c(&p("expr \"[blah]\"").0.tokens) == vec![Danger("Dangerous unquoted expr", "\"[blah]\"")]);
