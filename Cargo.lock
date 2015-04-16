@@ -2,41 +2,57 @@
 name = "tclscan"
 version = "0.0.1"
 dependencies = [
- "docopt 0.6.34 (registry+https://github.com/rust-lang/crates.io-index)",
- "docopt_macros 0.6.34 (registry+https://github.com/rust-lang/crates.io-index)",
+ "docopt 0.6.62 (registry+https://github.com/rust-lang/crates.io-index)",
+ "docopt_macros 0.6.62 (registry+https://github.com/rust-lang/crates.io-index)",
  "rust-bindgen 0.13.0 (git+https://github.com/crabtw/rust-bindgen.git)",
- "rustc-serialize 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "docopt"
-version = "0.6.34"
+version = "0.6.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "regex 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "rustc-serialize 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustc-serialize 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "docopt_macros"
-version = "0.6.34"
+version = "0.6.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "docopt 0.6.34 (registry+https://github.com/rust-lang/crates.io-index)",
+ "docopt 0.6.62 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "libc"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "log"
+version = "0.3.1"
+source = "git+https://github.com/rust-lang/log.git#c8ffc91a1ad1ebf4966cfa1c9e864dab743c7386"
+dependencies = [
+ "libc 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "regex"
-version = "0.1.13"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "rust-bindgen"
 version = "0.13.0"
-source = "git+https://github.com/crabtw/rust-bindgen.git#a7adb21c3b6341188507157b76e47a4f518a42cb"
+source = "git+https://github.com/crabtw/rust-bindgen.git#7ab9b692aa0be30237e56af5ee8a7e2c4a0027cd"
+dependencies = [
+ "log 0.3.1 (git+https://github.com/rust-lang/log.git)",
+]
 
 [[package]]
 name = "rustc-serialize"
-version = "0.2.12"
+version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 

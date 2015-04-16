@@ -5,9 +5,9 @@ version = "0.0.1"
 authors = ["Aidan Hobson Sayers <aidanhs@cantab.net>"]
 
 [dependencies]
-docopt = "0.6.34"
-docopt_macros = "0.6.34"
-rustc-serialize = "0.2.12"
+docopt = "0.6.62"
+docopt_macros = "0.6.62"
+rustc-serialize = "0.3.12"
 
 [dependencies.rust-bindgen]
 git = "https://github.com/crabtw/rust-bindgen.git"

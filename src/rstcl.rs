@@ -1,5 +1,4 @@
 use std::mem::uninitialized;
-use std::iter::AdditiveIterator;
 use std::num::FromPrimitive;
 use std::ffi::CString;
 
@@ -14,7 +13,7 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
     return I.unwrap();
 }
 
-#[derive(Copy, Debug, FromPrimitive, PartialEq)]
+#[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
 pub enum TokenType {
     Word = 1, // TCL_TOKEN_WORD
     SimpleWord = 2, // TCL_TOKEN_SIMPLE_WORD
@@ -244,7 +243,7 @@ fn parse<'a>(string: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>,
         let parse_ptr: *mut tcl::Tcl_Parse = &mut parse;
 
         // https://github.com/rust-lang/rust/issues/16035
-        let string_cstr = CString::from_slice(string.as_bytes());
+        let string_cstr = CString::new(string.as_bytes()).unwrap();
         let string_ptr = string_cstr.as_ptr();
         let string_start = string_ptr as usize;
 
@@ -291,7 +290,7 @@ fn parse<'a>(string: &'a str, is_command: bool, is_expr: bool) -> (TclParse<'a>,
 
 unsafe fn make_tokens<'a>(string: &'a str, string_start: usize, tcl_parse: &tcl::Tcl_Parse) -> Vec<TclToken<'a>> {
     let mut acc = vec![];
-    for i in range(0, tcl_parse.numTokens as isize).rev() {
+    for i in (0..tcl_parse.numTokens as isize).rev() {
         let tcl_token = *(tcl_parse.tokenPtr).offset(i);
         assert!(tcl_token.start as usize > 0);
         let offset = tcl_token.start as usize - string_start;
@@ -304,11 +303,11 @@ unsafe fn make_tokens<'a>(string: &'a str, string_start: usize, tcl_parse: &tcl:
 }
 
 fn count_tokens(token: &TclToken) -> usize {
-    token.tokens.iter().map(|t| count_tokens(t)).sum() + 1
+    token.tokens.iter().map(|t| count_tokens(t)).sum::<usize>() + 1
 }
 
 fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Vec<TclToken<'a>>) {
-    let token_type: TokenType = FromPrimitive::from_uint(tcl_token._type as usize).unwrap();
+    let token_type: TokenType = FromPrimitive::from_usize(tcl_token._type as usize).unwrap();
     let num_subtokens = tcl_token.numComponents as usize;
 
     let subtokens = match token_type {

@@ -1,19 +1,20 @@
 #![feature(plugin)]
-#![feature(io)]
-#![feature(path)]
-#![feature(core)]
+#![plugin(docopt_macros)]
 
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate rustc_serialize;
 extern crate docopt;
-#[plugin] #[no_link] extern crate docopt_macros;
 extern crate tclscan;
 
-use std::old_io;
+use std::error::Error;
+use std::fs;
+use std::io::prelude::*;
+use std::io;
+use std::path::Path;
 use docopt::Docopt;
 use tclscan::rstcl;
 use tclscan::CheckResult;
 
-docopt!(Args derive Show, "
+docopt!(Args derive Debug, "
 Usage: tclscan check [--no-warn] ( - | <path> )
        tclscan parsestr ( - | <script-str> )
 ");
@@ -23,21 +24,33 @@ pub fn main() {
     let take_stdin = args.cmd__;
     let script_in = match (args.cmd_check, args.cmd_parsestr, take_stdin) {
         (true, false, false) => {
-            let path = &args.arg_path[];
-            let mut file = old_io::File::open(&Path::new(path));
-            let read_result = file.read_to_string();
-            if read_result.is_err() {
-                println!("WARN: Couldn't read {}: {}", path, read_result.unwrap_err());
-                return;
+            let path = Path::new(&args.arg_path);
+            let path_display = path.display();
+            let mut file = match fs::File::open(&path) {
+                Err(err) => panic!("ERROR: Couldn't open {}: {}",
+                                   path_display, Error::description(&err)),
+                Ok(file) => file,
+            };
+            let mut file_content = String::new();
+            match file.read_to_string(&mut file_content) {
+                Err(err) => panic!("ERROR: Couldn't read {}: {}",
+                                   path_display, Error::description(&err)),
+                Ok(_) => file_content,
             }
-            read_result.unwrap()
         },
         (true, false, true) |
-        (false, true, true) => old_io::stdin().read_to_string().unwrap(),
+        (false, true, true) => {
+            let mut stdin_content = String::new();
+            match io::stdin().read_to_string(&mut stdin_content) {
+                Err(err) => panic!("ERROR: Couldn't read stdin: {}",
+                                   Error::description(&err)),
+                Ok(_) => stdin_content,
+            }
+        },
         (false, true, false) => args.arg_script_str,
         _ => panic!("Internal error: could not load script"),
     };
-    let script = &script_in[];
+    let script = &script_in;
     match (args.cmd_check, args.cmd_parsestr) {
         (true, false) => {
             let mut results = tclscan::scan_script(script);

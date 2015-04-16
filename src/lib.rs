@@ -1,8 +1,8 @@
-#![feature(slicing_syntax)]
 #![feature(core)]
 #![feature(collections)]
 #![feature(libc)]
-#![feature(std_misc)]
+#![feature(slice_patterns)]
+#![feature(str_char)]
 
 extern crate libc;
 
@@ -55,9 +55,9 @@ fn check_literal<'a, 'b>(ctx: &'a str, token: &'b rstcl::TclToken<'a>) -> Vec<Ch
     assert!(token_str.len() > 0);
     return if token_str.char_at(0) == '{' {
         vec![]
-    } else if token_str.contains_char('$') {
+    } else if token_str.contains('$') {
         vec![Danger(ctx, "Expected literal, found $", token_str)]
-    } else if token_str.contains_char('[') {
+    } else if token_str.contains('[') {
         vec![Danger(ctx, "Expected literal, found [", token_str)]
     } else {
         vec![]
@@ -83,7 +83,7 @@ fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
         return true;
     }
     let token_strs: Vec<&str> = parses[0].tokens.iter().map(|e| e.val).collect();
-    return match &token_strs[] {
+    return match &token_strs[..] {
         ["info", "exists", ..] |
         ["catch", ..] => true,
         _ => false,
@@ -160,7 +160,7 @@ pub fn check_command<'a, 'b>(ctx: &'a str, tokens: &'b Vec<rstcl::TclToken<'a>>)
             let mut param_types = vec![Code::Block];
             if tokens.len() == 3 || tokens.len() == 4 {
                 let new_params: Vec<Code> = iter::repeat(Code::Literal).take(tokens.len()-2).collect();
-                param_types.push_all(&new_params[]);
+                param_types.push_all(&new_params);
             }
             param_types
         }
@@ -183,7 +183,7 @@ pub fn check_command<'a, 'b>(ctx: &'a str, tokens: &'b Vec<rstcl::TclToken<'a>>)
                     "elseif" => vec![Code::Literal, Code::Expr, Code::Block],
                     "else" => vec![Code::Literal, Code::Block],
                     _ => { break; },
-                }[]);
+                });
                 i = param_types.len() + 1;
             }
             param_types
