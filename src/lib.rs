@@ -84,6 +84,8 @@ fn is_safe_cmd(token: &rstcl::TclToken) -> bool {
     }
     let token_strs: Vec<&str> = parses[0].tokens.iter().map(|e| e.val).collect();
     return match &token_strs[..] {
+        ["llength", _] |
+        ["clock", "seconds"] |
         ["info", "exists", ..] |
         ["catch", ..] => true,
         _ => false,
