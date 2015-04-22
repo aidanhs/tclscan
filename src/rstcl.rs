@@ -141,13 +141,28 @@ impl<'b, 'c: 'b> Iterator for TclTokenIter<'b, 'c> {
 pub fn parse_command<'a>(string: &'a str) -> (TclParse<'a>, &'a str) {
     return parse(string, true, false);
 }
+/// Takes: a string, which should be a tcl script
+/// Returns: a list of parse structures representing the entire script
+///
+/// ```
+/// use tclscan::rstcl::TclParse;
+/// use tclscan::rstcl::parse_script;
+/// assert!(parse_script(";;;   ;    ;") == vec![
+///     TclParse { comment: Some(""), command: Some(";"), tokens: vec![] },
+///     TclParse { comment: Some(""), command: Some(";"), tokens: vec![] },
+///     TclParse { comment: Some(""), command: Some(";"), tokens: vec![] },
+///     TclParse { comment: Some(""), command: Some(";"), tokens: vec![] },
+///     TclParse { comment: Some(""), command: Some(";"), tokens: vec![] }
+/// ]);
+/// ```
 pub fn parse_script<'a>(string: &'a str) -> Vec<TclParse<'a>> {
     let mut script = string;
     let mut commands = vec![];
     while script.len() > 0 {
         let (parse, remaining) = parse_command(script);
-        // Make sure commandless parse only happens at the end
-        assert!(parse.tokens.len() > 0 || remaining.len() == 0);
+        // Make sure commandless parse only happens at the end or at a semicolon
+        assert!(parse.tokens.len() > 0 || remaining.len() == 0 || parse.command == Some(";"),
+            "S:`{}` P:{:?} R:`{}`", script, parse, remaining);
         script = remaining;
         commands.push(parse);
     }
