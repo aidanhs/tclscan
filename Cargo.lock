@@ -13,7 +13,7 @@ name = "docopt"
 version = "0.6.62"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "regex 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 0.1.29 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -40,13 +40,13 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "0.1.28"
+version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "rust-bindgen"
 version = "0.13.0"
-source = "git+https://github.com/crabtw/rust-bindgen.git#7ab9b692aa0be30237e56af5ee8a7e2c4a0027cd"
+source = "git+https://github.com/crabtw/rust-bindgen.git#1fe304a92b8f42ce38b1ddb7aae7080438895629"
 dependencies = [
  "log 0.3.1 (git+https://github.com/rust-lang/log.git)",
 ]
