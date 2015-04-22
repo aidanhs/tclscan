@@ -126,6 +126,7 @@ fn is_safe_val(token: &rstcl::TclToken) -> bool {
 /// assert!(c(("puts [x\n ]")) == vec![]);
 /// assert!(c(("puts [x;y]")) == vec![]);
 /// assert!(c(("puts [x;eval $y]")) == vec![Danger("eval $y", "Dangerous unquoted block", "$y")]);
+/// assert!(c(("puts [;;eval $y]")) == vec![Danger("eval $y", "Dangerous unquoted block", "$y")]);
 /// assert!(c(("puts [eval $x]")) == vec![Danger("eval $x", "Dangerous unquoted block", "$x")]);
 /// assert!(c(("expr {[blah]}")) == vec![]);
 /// assert!(c(("expr \"[blah]\"")) == vec![Danger("expr \"[blah]\"", "Dangerous unquoted expr", "\"[blah]\"")]);
@@ -144,7 +145,7 @@ pub fn check_command<'a, 'b>(ctx: &'a str, tokens: &'b Vec<rstcl::TclToken<'a>>)
             results.extend(scan_command(subtok.val).into_iter());
         }
     }
-    // The empty command (e.g. `[]`)
+    // The empty command (caused by e.g. `[]`, `;;`, last parse in a script)
     if tokens.len() == 0 {
         return results;
     }
@@ -256,10 +257,6 @@ pub fn scan_command<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
 pub fn scan_script<'a>(string: &'a str) -> Vec<CheckResult<'a>> {
     let mut all_results: Vec<CheckResult<'a>> = vec![];
     for parse in rstcl::parse_script(string) {
-        // Skip empty parse at end of script
-        if parse.tokens.len() == 0 {
-            break;
-        }
         let results = check_command(&parse.command.unwrap(), &parse.tokens);
         all_results.extend(results.into_iter());
     }
