@@ -5,6 +5,9 @@
 #![feature(str_char)]
 
 extern crate libc;
+// https://github.com/rust-lang/rust/issues/16920
+#[macro_use] extern crate enum_primitive;
+extern crate num;
 
 use std::iter;
 use std::fmt;

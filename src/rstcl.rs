@@ -1,6 +1,7 @@
 use std::mem::uninitialized;
-use std::num::FromPrimitive;
 use std::ffi::CString;
+
+use num::traits::FromPrimitive;
 
 use tcl;
 use self::TokenType::*;
@@ -13,7 +14,8 @@ unsafe fn tcl_interp() -> *mut tcl::Tcl_Interp {
     return I.unwrap();
 }
 
-#[derive(Clone, Copy, Debug, FromPrimitive, PartialEq)]
+enum_from_primitive! {
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TokenType {
     Word = 1, // TCL_TOKEN_WORD
     SimpleWord = 2, // TCL_TOKEN_SIMPLE_WORD
@@ -24,6 +26,7 @@ pub enum TokenType {
     SubExpr = 64, // TCL_TOKEN_SUB_EXPR
     Operator = 128, // TCL_TOKEN_OPERATOR
     ExpandWord = 256, // TCL_TOKEN_EXPAND_WORD
+}
 }
 
 #[derive(Debug, PartialEq)]
@@ -322,7 +325,7 @@ fn count_tokens(token: &TclToken) -> usize {
 }
 
 fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Vec<TclToken<'a>>) {
-    let token_type: TokenType = FromPrimitive::from_usize(tcl_token._type as usize).unwrap();
+    let token_type: TokenType = TokenType::from_usize(tcl_token._type as usize).unwrap();
     let num_subtokens = tcl_token.numComponents as usize;
 
     let subtokens = match token_type {
