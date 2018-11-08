@@ -82,4 +82,4 @@ cargo build
 ```
 
 A successfull build produce the executable `tclscan/target/debug/tclscan`.
-If you want to install tclscan on other systems, keep in mind that it depends on `libtcl.so` in y our `$LD_LIBRARY_PATH`.
+If you want to install tclscan on other systems, keep in mind that it depends on `libtcl.so` in your `$LD_LIBRARY_PATH`.

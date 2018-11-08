@@ -54,7 +54,7 @@ pub fn main() {
                 Ok(_) => stdin_content,
             }
         },
-        (false, true, false) => arg_script_str.to_own(),
+        (false, true, false) => arg_script_str.to_owned(),
         _ => panic!("Internal error: could not load script"),
     };
     let script = &script_in;
