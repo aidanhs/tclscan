@@ -1,8 +1,8 @@
 #![feature(core)]
-#![feature(collections)]
+//#![feature(collections)]
 #![feature(libc)]
 #![feature(slice_patterns)]
-#![feature(str_char)]
+//#![feature(str_char)]
 
 extern crate libc;
 // https://github.com/rust-lang/rust/issues/16920
@@ -56,7 +56,7 @@ enum Code {
 fn check_literal<'a, 'b>(ctx: &'a str, token: &'b rstcl::TclToken<'a>) -> Vec<CheckResult<'a>> {
     let token_str = token.val;
     assert!(token_str.len() > 0);
-    return if token_str.char_at(0) == '{' {
+    return if token_str.chars().nth(0) == Some('{') {
         vec![]
     } else if token_str.contains('$') {
         vec![Danger(ctx, "Expected literal, found $", token_str)]
@@ -166,7 +166,7 @@ pub fn check_command<'a, 'b>(ctx: &'a str, tokens: &'b Vec<rstcl::TclToken<'a>>)
             let mut param_types = vec![Code::Block];
             if tokens.len() == 3 || tokens.len() == 4 {
                 let new_params: Vec<Code> = iter::repeat(Code::Literal).take(tokens.len()-2).collect();
-                param_types.push_all(&new_params);
+                param_types.extend_from_slice(&new_params);
             }
             param_types
         }
@@ -185,7 +185,7 @@ pub fn check_command<'a, 'b>(ctx: &'a str, tokens: &'b Vec<rstcl::TclToken<'a>>)
             let mut param_types = vec![Code::Expr, Code::Block];
             let mut i = 3;
             while i < tokens.len() {
-                param_types.push_all(&match tokens[i].val {
+                param_types.extend_from_slice(&match tokens[i].val {
                     "elseif" => vec![Code::Literal, Code::Expr, Code::Block],
                     "else" => vec![Code::Literal, Code::Block],
                     _ => { break; },
