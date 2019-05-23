@@ -3,6 +3,7 @@
 #![feature(libc)]
 #![feature(slice_patterns)]
 //#![feature(str_char)]
+#![feature(rustc_private)]
 
 extern crate libc;
 // https://github.com/rust-lang/rust/issues/16920
