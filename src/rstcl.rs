@@ -325,7 +325,7 @@ fn count_tokens(token: &TclToken) -> usize {
 }
 
 fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Vec<TclToken<'a>>) {
-    let token_type: TokenType = TokenType::from_usize(tcl_token._type as usize).unwrap();
+    let token_type: TokenType = TokenType::from_usize(tcl_token.type_ as usize).unwrap();
     let num_subtokens = tcl_token.numComponents as usize;
 
     let subtokens = match token_type {
@@ -353,7 +353,7 @@ fn make_tcltoken<'a>(tcl_token: &tcl::Tcl_Token, tokenval: &'a str, acc: &mut Ve
             vec![]
         },
         Command => {
-            assert!(tokenval.char_at(0) == '[');
+            assert!(tokenval.chars().nth(0) == Some('['));
             assert!(num_subtokens == 0);
             vec![]
         },
