@@ -23,8 +23,16 @@ Install rustup and cargo from source.
 ```bash
 curl https://sh.rustup.rs -sSf | sh
 ```
+Some of the code relies on features in the nightly build of rust, so you need to switch to it.
+
+```bash
+$ rustup toolchain install nightly
+info: syncing channel updates for 'nightly-x86_64-unknown-linux-gnu'
+$ rustup default nightly
+```
 
 Activate the rust environment in your shell
+
 ```bash
 source ~/.cargo/env
 ```
@@ -46,8 +54,9 @@ v0.42.2
 v0.42.3
 v0.43.0
 v0.43.1
+vX.YY.Z
 
-git checkout v0.43.1
+git checkout vX.YY.Z (e.g. the latest branch)
 ```
 
 Update the cargo and build
@@ -64,6 +73,18 @@ Prepare the rust to c bindings in two steps:
 Generate `tcl.rs` in the `tclsca/src/` directory using `bindgen`
 ```bash
 LD_PRELOAD=/usr/lib/llvm-6.0/lib/libclang.so.1 rust-bindgen/target/debug/bindgen -o tclscan/src/tcl.rs tclscan/src/mytcl.h
+```
+
+If you get the error
+
+```bash
+error: 'rustfmt' is not installed for the toolchain 'nightly-x86_64-unknown-linux-gnu'
+```
+
+Simply install rustfmt:
+
+```bash
+$ rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
 ```
 
 Upate your running environment
